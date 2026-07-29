@@ -118,6 +118,23 @@ export function ImportLeadsWorkflow({ type, title, description }) {
     }
   }
 
+  async function runGenerateLoop(id) {
+    let done = false;
+    while (!done) {
+      setGenProgress("Generating personalized emails...");
+      const genRes = await fetch(`/api/leads/batches/${id}/generate`, { method: "POST" });
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error);
+
+      setGenProgress(`${genData.remaining} leads remaining...`);
+      done = genData.done;
+
+      if (!done) {
+        await sleep(100);
+      }
+    }
+  }
+
   async function handleCreateAndGenerate() {
     setError("");
     setSuccess("");
@@ -142,20 +159,7 @@ export function ImportLeadsWorkflow({ type, title, description }) {
       setBatchId(id);
       setStep("generating");
 
-      let done = false;
-      while (!done) {
-        setGenProgress("Generating personalized emails...");
-        const genRes = await fetch(`/api/leads/batches/${id}/generate`, { method: "POST" });
-        const genData = await genRes.json();
-        if (!genRes.ok) throw new Error(genData.error);
-
-        setGenProgress(`${genData.remaining} leads remaining...`);
-        done = genData.done;
-
-        if (!done) {
-          await sleep(500);
-        }
-      }
+      await runGenerateLoop(id);
 
       await loadBatch(id);
       setStep("review");
@@ -163,6 +167,28 @@ export function ImportLeadsWorkflow({ type, title, description }) {
     } catch (err) {
       setError(err.message);
       setStep("paste");
+    } finally {
+      setGenerating(false);
+      setGenProgress("");
+    }
+  }
+
+  async function handleRetryFailed() {
+    if (!batchId) return;
+
+    setError("");
+    setSuccess("");
+    setGenerating(true);
+    setStep("generating");
+
+    try {
+      await runGenerateLoop(batchId);
+      await loadBatch(batchId);
+      setStep("review");
+      setSuccess("Failed leads retried.");
+    } catch (err) {
+      setError(err.message);
+      setStep("review");
     } finally {
       setGenerating(false);
       setGenProgress("");
@@ -462,6 +488,12 @@ export function ImportLeadsWorkflow({ type, title, description }) {
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              {step === "review" && stats?.failed > 0 ? (
+                <Button variant="secondary" onClick={handleRetryFailed} loading={generating}>
+                  <RefreshCw className="h-4 w-4" />
+                  Retry failed ({stats.failed})
+                </Button>
+              ) : null}
               {step === "review" && stats?.generated > 0 ? (
                 <Button onClick={handleStartSending} loading={loading}>
                   <Send className="h-4 w-4" />

@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/get-session";
 import { generateLeadEmail } from "@/lib/ai/lead-email";
 
-const CHUNK_SIZE = 5;
+const CHUNK_SIZE = 8;
+/** Keep low to stay under Groq free-tier TPM (12k/min). */
+const CONCURRENCY = 2;
+const MAX_RETRIES = 4;
+
+/**
+ * Shared cooldown — when any worker hits rate limit, others wait too.
+ * @type {Promise<void>}
+ */
+let rateLimitCooldown = Promise.resolve();
 
 /**
  * @param {import("next/server").NextRequest} request
@@ -48,12 +57,9 @@ export async function POST(request, { params }) {
     return NextResponse.json({ done: true, generated: 0, remaining: 0 });
   }
 
-  let generated = 0;
-  const errors = [];
-
-  for (const lead of pendingLeads) {
+  const outcomes = await mapWithConcurrency(pendingLeads, CONCURRENCY, async (lead) => {
     try {
-      const result = await generateLeadEmail(batch.type, {
+      const result = await generateLeadEmailWithRetry(batch.type, {
         name: lead.name,
         country: lead.country,
         category: lead.category,
@@ -73,19 +79,33 @@ export async function POST(request, { params }) {
         })
         .eq("id", lead.id);
 
-      generated += 1;
-
-      await sleep(1500);
+      return { ok: true, leadId: lead.id };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Generation failed.";
-      errors.push({ leadId: lead.id, name: lead.name, error: message });
+
+      // Leave rate-limited leads as pending so the next round retries them.
+      if (isRateLimitError(error)) {
+        await session.supabase
+          .from("leads")
+          .update({ status: "pending", error_message: null })
+          .eq("id", lead.id);
+
+        return { ok: false, rateLimited: true, leadId: lead.id, name: lead.name, error: message };
+      }
 
       await session.supabase
         .from("leads")
         .update({ status: "failed", error_message: message })
         .eq("id", lead.id);
+
+      return { ok: false, rateLimited: false, leadId: lead.id, name: lead.name, error: message };
     }
-  }
+  });
+
+  const generated = outcomes.filter((item) => item.ok).length;
+  const errors = outcomes
+    .filter((item) => !item.ok && !item.rateLimited)
+    .map((item) => ({ leadId: item.leadId, name: item.name, error: item.error }));
 
   const { count: remaining, error: countError } = await session.supabase
     .from("leads")
@@ -95,6 +115,11 @@ export async function POST(request, { params }) {
 
   if (countError) {
     return NextResponse.json({ error: countError.message }, { status: 500 });
+  }
+
+  const rateLimited = outcomes.some((item) => item.rateLimited);
+  if (rateLimited && (remaining ?? 0) > 0) {
+    await sleep(3500);
   }
 
   if (remaining === 0) {
@@ -115,6 +140,82 @@ export async function POST(request, { params }) {
     remaining: remaining ?? 0,
     errors,
   });
+}
+
+/**
+ * @param {'website' | 'smm'} type
+ * @param {{ name: string; country?: string; category?: string; projectDescription?: string; budget?: string }} lead
+ */
+async function generateLeadEmailWithRetry(type, lead) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    await rateLimitCooldown;
+
+    try {
+      return await generateLeadEmail(type, lead);
+    } catch (error) {
+      lastError = error;
+
+      if (!isRateLimitError(error) || attempt === MAX_RETRIES) {
+        throw error;
+      }
+
+      const waitMs = getRetryWaitMs(error);
+      const wait = sleep(waitMs);
+      rateLimitCooldown = wait;
+      await wait;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * @param {unknown} error
+ */
+function isRateLimitError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /429|rate[_ ]?limit|quota|too many requests|tokens per minute|tpm/i.test(message);
+}
+
+/**
+ * Parse Groq's "Please try again in 3.08s" hint.
+ * @param {unknown} error
+ */
+function getRetryWaitMs(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/try again in\s+(\d+(?:\.\d+)?)\s*s/i);
+
+  if (match) {
+    return Math.ceil(Number(match[1]) * 1000) + 500;
+  }
+
+  return 3500;
+}
+
+/**
+ * @template T, R
+ * @param {T[]} items
+ * @param {number} concurrency
+ * @param {(item: T) => Promise<R>} worker
+ * @returns {Promise<R[]>}
+ */
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex;
+      nextIndex += 1;
+      results[current] = await worker(items[current]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker());
+  await Promise.all(workers);
+  return results;
 }
 
 /**
