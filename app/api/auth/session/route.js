@@ -1,43 +1,37 @@
 import { NextResponse } from "next/server";
-import { isEmailAllowed } from "@/lib/auth/allowlist";
-import {
-  ACCESS_TOKEN_COOKIE,
-  clearAuthCookies,
-} from "@/lib/auth/cookies";
-import { createServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth/get-session";
+import { getWorkspaceSettings, publicWorkspaceSettings } from "@/lib/workspaces";
 
 export async function GET() {
-  try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+  const session = await getSession();
 
-    if (!accessToken) {
-      return NextResponse.json({ user: null }, { status: 401 });
-    }
-
-    const supabase = createServerClient(accessToken);
-    const { data, error } = await supabase.auth.getUser(accessToken);
-
-    if (error || !data.user?.email) {
-      const response = NextResponse.json({ user: null }, { status: 401 });
-      clearAuthCookies(response);
-      return response;
-    }
-
-    if (!isEmailAllowed(data.user.email)) {
-      const response = NextResponse.json({ user: null }, { status: 403 });
-      clearAuthCookies(response);
-      return response;
-    }
-
-    return NextResponse.json({
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-      },
-    });
-  } catch {
-    return NextResponse.json({ user: null }, { status: 500 });
+  if (!session) {
+    return NextResponse.json({ authenticated: false }, { status: 401 });
   }
+
+  let settings = null;
+  if (session.workspace) {
+    try {
+      settings = publicWorkspaceSettings(
+        await getWorkspaceSettings(session.supabase, session.workspace.id)
+      );
+    } catch {
+      settings = null;
+    }
+  }
+
+  const isOwner = session.workspace?.role === "owner";
+  const needsOnboarding =
+    !session.workspace ||
+    (isOwner &&
+      (!session.workspace.onboarding_completed || !settings?.smtpConfigured));
+
+  return NextResponse.json({
+    authenticated: true,
+    user: session.user,
+    workspaces: session.workspaces,
+    workspace: session.workspace,
+    settings,
+    needsOnboarding,
+  });
 }

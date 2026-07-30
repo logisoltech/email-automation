@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
 import { deliverEmail } from "@/lib/email/send";
 import { formatSmtpError } from "@/lib/email/nodemailer";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const sendSchema = z.object({
   subject: z.string().min(1, "Subject is required."),
@@ -16,11 +17,8 @@ const sendSchema = z.object({
 });
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const body = await request.json();
   const parsed = sendSchema.safeParse(body);
@@ -33,6 +31,8 @@ export async function POST(request) {
   }
 
   const { subject, bodyText, bodyHtml, recipients, aiPrompt } = parsed.data;
+  const workspaceId = session.workspace.id;
+  const settings = await getWorkspaceSettings(session.supabase, workspaceId);
 
   try {
     const { html, bodyText: text } = await deliverEmail({
@@ -40,11 +40,13 @@ export async function POST(request) {
       bodyText,
       bodyHtml,
       recipients,
+      settings,
     });
 
     const { data, error } = await session.supabase
       .from("emails")
       .insert({
+        workspace_id: workspaceId,
         sent_by: session.user.id,
         subject,
         body_html: html,
@@ -70,6 +72,7 @@ export async function POST(request) {
     const message = formatSmtpError(error);
 
     await session.supabase.from("emails").insert({
+      workspace_id: workspaceId,
       sent_by: session.user.id,
       subject,
       body_html: bodyHtml || bodyText,

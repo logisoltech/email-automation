@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Pagination } from "@/components/ui/pagination";
+import { Alert } from "@/components/ui/alert";
+
+const PAGE_SIZE = 10;
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState([]);
@@ -16,6 +20,7 @@ export default function TemplatesPage() {
   const [success, setSuccess] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [page, setPage] = useState(1);
 
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
@@ -109,8 +114,8 @@ export default function TemplatesPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Templates</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <h1 className="page-title">Templates</h1>
+          <p className="page-subtitle">
             Shared email templates for your Logisol team.
           </p>
         </div>
@@ -128,17 +133,9 @@ export default function TemplatesPage() {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {success ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {success}
-        </div>
-      ) : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
 
       {showForm ? (
         <Card
@@ -161,7 +158,7 @@ export default function TemplatesPage() {
               label="Body"
               value={bodyText}
               onChange={(event) => setBodyText(event.target.value)}
-              className="min-h-[200px]"
+              className="min-h-50"
             />
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button onClick={handleSave} loading={saving} className="sm:flex-1">
@@ -177,18 +174,18 @@ export default function TemplatesPage() {
 
       {loading ? (
         <Card>
-          <p className="text-sm text-slate-500">Loading templates...</p>
+          <p className="text-sm text-(--muted-text)">Loading templates...</p>
         </Card>
       ) : null}
 
       {!loading && templates.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <div className="ps-streaks rounded-xl bg-(--ink) p-3 text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)]">
               <FileText className="h-6 w-6" />
             </div>
-            <p className="text-sm font-medium text-slate-900">No templates yet</p>
-            <p className="max-w-sm text-sm text-slate-500">
+            <p className="text-sm font-medium text-(--heading)">No templates yet</p>
+            <p className="max-w-sm text-sm text-(--muted-text)">
               Save reusable emails your whole team can load in Compose.
             </p>
           </div>
@@ -197,18 +194,23 @@ export default function TemplatesPage() {
 
       {!loading && templates.length > 0 ? (
         <div className="space-y-3">
-          {templates.map((template) => (
-            <Card key={template.id} className="p-4 sm:p-5">
+          {templates
+            .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+            .map((template) => (
+            <Card
+              key={template.id}
+              className="p-4 transition hover:border-(--ink)/25 sm:p-5"
+            >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-semibold text-slate-900">{template.name}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{template.subject}</p>
-                  <p className="mt-2 line-clamp-2 text-sm text-slate-500">{template.body_text}</p>
+                  <h2 className="text-base font-semibold text-(--heading)">{template.name}</h2>
+                  <p className="mt-1 text-sm text-(--body)">{template.subject}</p>
+                  <p className="mt-2 line-clamp-2 text-sm text-(--muted-text)">{template.body_text}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/compose?template=${template.id}`}
-                    className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700"
+                    className="ps-streaks inline-flex h-9 items-center gap-1 rounded-xl bg-(--ink) px-3 text-sm font-medium text-(--on-ink) shadow-[0_8px_20px_-14px_rgba(10,10,12,0.9)] transition hover:bg-[#22222a]"
                   >
                     Use
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -225,6 +227,13 @@ export default function TemplatesPage() {
               </div>
             </Card>
           ))}
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(templates.length / PAGE_SIZE))}
+            total={templates.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
       ) : null}
     </div>

@@ -1,66 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { LogOut, Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 /**
- * @param {{ onMenuClick: () => void }} props
+ * @param {{
+ *   onMenuClick?: () => void;
+ *   userEmail?: string;
+ *   workspaceName?: string;
+ * }} props
  */
-export function Header({ onMenuClick }) {
-  const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((res) => (res.ok ? res.json() : { user: null }))
-      .then((data) => setUser(data.user))
-      .catch(() => setUser(null));
-  }, []);
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
-
+export function Header({ onMenuClick, userEmail, workspaceName }) {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-blue-100 bg-white/95 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-(--ink)/10 bg-(--surface)/80 px-4 backdrop-blur-xl sm:px-6">
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onMenuClick}
-          className="rounded-lg p-2 text-slate-600 hover:bg-blue-50 hover:text-blue-700 lg:hidden"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        {onMenuClick ? (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="rounded-xl p-2 text-(--heading)/60 transition hover:bg-(--ink)/5 hover:text-(--heading) lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        ) : null}
         <div>
-          <p className="text-sm font-semibold text-slate-900">Email Automation</p>
-          <p className="text-xs text-slate-500">Logisol internal dashboard</p>
+          <p className="text-sm font-semibold tracking-[-0.02em] text-(--heading)">
+            {workspaceName || "Workspace"}
+          </p>
+          <p className="text-[10px] font-light uppercase tracking-[0.2em] text-(--muted-text)">
+            AI outreach
+          </p>
         </div>
       </div>
-
       <div className="flex items-center gap-3">
-        {user?.email ? (
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-slate-900">{user.email}</p>
-            <p className="text-xs text-blue-600">Signed in</p>
-          </div>
-        ) : null}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleLogout}
-          loading={loggingOut}
-          className="shrink-0"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </Button>
+        <div className="hidden text-right sm:block">
+          <p className="text-sm font-light text-(--heading)">{userEmail || "—"}</p>
+          <p className="text-[10px] font-light uppercase tracking-[0.2em] text-(--muted-text)">
+            Signed in
+          </p>
+        </div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-(--ink) text-sm font-medium text-(--on-ink)">
+          {(userEmail || "?").slice(0, 1).toUpperCase()}
+        </div>
       </div>
     </header>
   );

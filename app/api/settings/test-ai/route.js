@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { generateEmail } from "@/lib/ai";
 
 export async function POST() {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   try {
     const result = await generateEmail(
       "Write a one-sentence test email confirming the AI provider is working.",
-      { tone: "brief", audience: "internal team" }
+      {
+        tone: "brief",
+        audience: "internal team",
+        workspaceId: session.workspace.id,
+        supabase: session.supabase,
+      }
     );
 
     return NextResponse.json({

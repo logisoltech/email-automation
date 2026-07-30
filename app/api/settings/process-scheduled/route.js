@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { processDueScheduledItems } from "@/lib/email/scheduler";
 import { formatProcessResultsMessage } from "@/lib/email/process-results";
 
 export async function POST() {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   try {
-    const results = await processDueScheduledItems({ drainLeads: true });
+    const results = await processDueScheduledItems({
+      drainLeads: true,
+      workspaceId: session.workspace.id,
+    });
     const processed =
       results.emails.length + results.campaigns.length + results.leads.length;
 

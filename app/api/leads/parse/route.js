@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { parseLeadsPaste } from "@/lib/leads/parse";
 
 const parseSchema = z.object({
@@ -7,6 +8,9 @@ const parseSchema = z.object({
 });
 
 export async function POST(request) {
+  const { error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
+
   try {
     const body = await request.json();
     const parsed = parseSchema.safeParse(body);

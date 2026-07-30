@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { generateLeadEmail } from "@/lib/ai/lead-email";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const CHUNK_SIZE = 8;
 /** Keep low to stay under Groq free-tier TPM (12k/min). */
@@ -18,28 +19,29 @@ let rateLimitCooldown = Promise.resolve();
  * @param {{ params: Promise<{ id: string }> }} context
  */
 export async function POST(request, { params }) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { id } = await params;
+  const workspaceId = session.workspace.id;
 
   const { data: batch, error: batchError } = await session.supabase
     .from("lead_batches")
     .select("*")
     .eq("id", id)
-    .single();
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
 
   if (batchError || !batch) {
     return NextResponse.json({ error: "Batch not found." }, { status: 404 });
   }
 
+  const settings = await getWorkspaceSettings(session.supabase, workspaceId);
+
   const { data: pendingLeads, error: leadsError } = await session.supabase
     .from("leads")
     .select("*")
-    .eq("batch_id", id)
+    .eq("batch_id", batch.id)
     .in("status", ["pending", "failed"])
     .order("sort_order", { ascending: true })
     .limit(CHUNK_SIZE);
@@ -52,20 +54,25 @@ export async function POST(request, { params }) {
     await session.supabase
       .from("lead_batches")
       .update({ status: "review", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", batch.id)
+      .eq("workspace_id", workspaceId);
 
     return NextResponse.json({ done: true, generated: 0, remaining: 0 });
   }
 
   const outcomes = await mapWithConcurrency(pendingLeads, CONCURRENCY, async (lead) => {
     try {
-      const result = await generateLeadEmailWithRetry(batch.type, {
-        name: lead.name,
-        country: lead.country,
-        category: lead.category,
-        projectDescription: lead.project_description,
-        budget: lead.budget,
-      });
+      const result = await generateLeadEmailWithRetry(
+        batch.type,
+        {
+          name: lead.name,
+          country: lead.country,
+          category: lead.category,
+          projectDescription: lead.project_description,
+          budget: lead.budget,
+        },
+        { workspaceId, settings, supabase: session.supabase }
+      );
 
       await session.supabase
         .from("leads")
@@ -110,7 +117,7 @@ export async function POST(request, { params }) {
   const { count: remaining, error: countError } = await session.supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("batch_id", id)
+    .eq("batch_id", batch.id)
     .eq("status", "pending");
 
   if (countError) {
@@ -126,12 +133,14 @@ export async function POST(request, { params }) {
     await session.supabase
       .from("lead_batches")
       .update({ status: "review", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", batch.id)
+      .eq("workspace_id", workspaceId);
   } else {
     await session.supabase
       .from("lead_batches")
       .update({ status: "generating", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", batch.id)
+      .eq("workspace_id", workspaceId);
   }
 
   return NextResponse.json({
@@ -145,15 +154,16 @@ export async function POST(request, { params }) {
 /**
  * @param {'website' | 'smm'} type
  * @param {{ name: string; country?: string; category?: string; projectDescription?: string; budget?: string }} lead
+ * @param {Parameters<typeof generateLeadEmail>[2]} options
  */
-async function generateLeadEmailWithRetry(type, lead) {
+async function generateLeadEmailWithRetry(type, lead, options) {
   let lastError;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     await rateLimitCooldown;
 
     try {
-      return await generateLeadEmail(type, lead);
+      return await generateLeadEmail(type, lead, options);
     } catch (error) {
       lastError = error;
 

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
 import { deliverEmail } from "@/lib/email/send";
 import { formatSmtpError } from "@/lib/email/nodemailer";
 import { wrapEmailHtml } from "@/lib/email/templates";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required."),
@@ -17,32 +18,45 @@ const campaignSchema = z.object({
   sendNow: z.boolean().optional(),
 });
 
-export async function GET() {
-  const session = await getSession();
+export async function GET(request) {
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, Number(searchParams.get("page")) || 1);
+  const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-  const { data, error } = await session.supabase
+  const { data, error, count } = await session.supabase
     .from("campaigns")
-    .select("id, name, subject, recipients, status, scheduled_at, sent_at, created_at, error_message")
+    .select(
+      "id, name, subject, recipients, status, scheduled_at, sent_at, created_at, error_message",
+      { count: "exact" }
+    )
+    .eq("workspace_id", session.workspace.id)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ campaigns: data ?? [] });
+  const total = count ?? 0;
+  return NextResponse.json({
+    campaigns: data ?? [],
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+  });
 }
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const body = await request.json();
   const parsed = campaignSchema.safeParse(body);
@@ -56,6 +70,7 @@ export async function POST(request) {
 
   const { name, subject, bodyText, bodyHtml, recipients, aiPrompt, scheduledAt, sendNow } =
     parsed.data;
+  const workspaceId = session.workspace.id;
   const html = wrapEmailHtml(bodyHtml || bodyText.replace(/\n/g, "<br>"));
 
   if (scheduledAt && Number.isNaN(new Date(scheduledAt).getTime())) {
@@ -69,6 +84,7 @@ export async function POST(request) {
   const { data: campaign, error: insertError } = await session.supabase
     .from("campaigns")
     .insert({
+      workspace_id: workspaceId,
       created_by: session.user.id,
       name,
       subject,
@@ -95,8 +111,10 @@ export async function POST(request) {
     return NextResponse.json({ success: true, campaign, draft: true });
   }
 
+  const settings = await getWorkspaceSettings(session.supabase, workspaceId);
+
   try {
-    await deliverEmail({ subject, bodyText, bodyHtml: html, recipients });
+    await deliverEmail({ subject, bodyText, bodyHtml: html, recipients, settings });
 
     const { data: updated, error: updateError } = await session.supabase
       .from("campaigns")
@@ -105,6 +123,7 @@ export async function POST(request) {
         sent_at: new Date().toISOString(),
       })
       .eq("id", campaign.id)
+      .eq("workspace_id", workspaceId)
       .select("*")
       .single();
 
@@ -113,6 +132,7 @@ export async function POST(request) {
     }
 
     await session.supabase.from("emails").insert({
+      workspace_id: workspaceId,
       sent_by: session.user.id,
       campaign_id: campaign.id,
       subject,
@@ -132,7 +152,8 @@ export async function POST(request) {
     await session.supabase
       .from("campaigns")
       .update({ status: "failed", error_message: message })
-      .eq("id", campaign.id);
+      .eq("id", campaign.id)
+      .eq("workspace_id", workspaceId);
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

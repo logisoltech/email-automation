@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 
 const instructionSchema = z.object({
   content: z.string().min(1, "Instruction text is required.").max(4000),
@@ -11,11 +11,8 @@ const instructionSchema = z.object({
  * @param {{ params: Promise<{ id: string }> }} context
  */
 export async function PUT(request, { params }) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { id } = await params;
   const body = await request.json();
@@ -35,11 +32,16 @@ export async function PUT(request, { params }) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
+    .eq("workspace_id", session.workspace.id)
     .select("id, content, created_at, updated_at")
-    .single();
+    .maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Instruction not found." }, { status: 404 });
   }
 
   return NextResponse.json({ instruction: data });
@@ -50,15 +52,16 @@ export async function PUT(request, { params }) {
  * @param {{ params: Promise<{ id: string }> }} context
  */
 export async function DELETE(request, { params }) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { id } = await params;
 
-  const { error } = await session.supabase.from("ai_instructions").delete().eq("id", id);
+  const { error } = await session.supabase
+    .from("ai_instructions")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", session.workspace.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

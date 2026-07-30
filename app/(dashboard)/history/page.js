@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
+import { Alert } from "@/components/ui/alert";
 
 const STATUS_FILTERS = [
   { value: "all", label: "All" },
@@ -56,7 +58,7 @@ function StatusBadge({ status }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-(--body)">
       {status}
     </span>
   );
@@ -87,12 +89,12 @@ function EmailBody({ email }) {
   });
 
   if (!html) {
-    return <p className="text-sm text-slate-500">No email body saved.</p>;
+    return <p className="text-sm text-(--muted-text)">No email body saved.</p>;
   }
 
   return (
     <div
-      className="text-sm leading-relaxed text-slate-800 [&_a]:text-blue-600 [&_a]:underline [&_br]:block [&_p]:mb-3 [&_p:last-child]:mb-0"
+      className="text-sm leading-relaxed text-(--body) [&_a]:text-(--heading) [&_a]:underline [&_a]:decoration-(--ink)/25 [&_a]:underline-offset-4 [&_br]:block [&_p]:mb-3 [&_p:last-child]:mb-0"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -106,14 +108,19 @@ export default function HistoryPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
   const [resultCount, setResultCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
 
-  const loadHistory = useCallback(async (query, status) => {
+  const loadHistory = useCallback(async (query, status, requestedPage) => {
     setLoading(true);
     setError("");
 
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     if (status !== "all") params.set("status", status);
+    params.set("page", String(requestedPage));
+    params.set("pageSize", String(pageSize));
 
     const url = params.toString()
       ? `/api/emails/history?${params.toString()}`
@@ -127,6 +134,7 @@ export default function HistoryPage() {
       }
       setEmails(data.emails ?? []);
       setResultCount(data.total ?? data.emails?.length ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -136,11 +144,11 @@ export default function HistoryPage() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadHistory(search, statusFilter);
+      loadHistory(search, statusFilter, page);
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [search, statusFilter, loadHistory]);
+  }, [search, statusFilter, page, loadHistory]);
 
   const hasFilters = search.trim() || statusFilter !== "all";
 
@@ -148,14 +156,14 @@ export default function HistoryPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">History</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <h1 className="page-title">History</h1>
+          <p className="page-subtitle">
             Search and read every email your team has sent.
           </p>
         </div>
         <Link
           href="/compose"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+          className="ps-streaks inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-(--ink) px-4 text-sm font-medium text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)] transition hover:bg-[#22222a]"
         >
           <Plus className="h-4 w-4" />
           New email
@@ -164,11 +172,14 @@ export default function HistoryPage() {
 
       <Card className="space-y-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-(--muted-text)" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search subject, recipient, or email body..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search subject, exact recipient email, or email body..."
             className="pl-10"
             aria-label="Search history"
           />
@@ -179,11 +190,14 @@ export default function HistoryPage() {
             <button
               key={filter.value}
               type="button"
-              onClick={() => setStatusFilter(filter.value)}
+              onClick={() => {
+                setStatusFilter(filter.value);
+                setPage(1);
+              }}
               className={
                 statusFilter === filter.value
-                  ? "rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white"
-                  : "rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
+                  ? "ps-streaks rounded-full bg-(--ink) px-3 py-1.5 text-xs font-medium text-(--on-ink)"
+                  : "rounded-full border border-(--ink)/8 bg-(--surface) px-3 py-1.5 text-xs font-medium text-(--body) transition hover:border-(--ink)/25 hover:text-(--heading)"
               }
             >
               {filter.label}
@@ -192,37 +206,32 @@ export default function HistoryPage() {
         </div>
 
         {!loading && !error ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-(--muted-text)">
             {hasFilters
-              ? `${emails.length} result${emails.length === 1 ? "" : "s"}`
-              : `Showing ${emails.length} most recent`}
-            {resultCount > emails.length ? ` (of ${resultCount} matches)` : ""}
+              ? `${resultCount} result${resultCount === 1 ? "" : "s"}`
+              : `${resultCount} emails`}
           </p>
         ) : null}
       </Card>
 
       {loading ? (
         <Card>
-          <p className="text-sm text-slate-500">Loading history...</p>
+          <p className="text-sm text-(--muted-text)">Loading history...</p>
         </Card>
       ) : null}
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
       {!loading && !error && emails.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <div className="ps-streaks rounded-xl bg-(--ink) p-3 text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)]">
               <Mail className="h-6 w-6" />
             </div>
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-medium text-(--heading)">
               {hasFilters ? "No matching emails" : "No emails yet"}
             </p>
-            <p className="max-w-sm text-sm text-slate-500">
+            <p className="max-w-sm text-sm text-(--muted-text)">
               {hasFilters
                 ? "Try a different search term or clear your filters."
                 : "Compose your first AI-assisted email and it will show up here."}
@@ -230,7 +239,7 @@ export default function HistoryPage() {
             {!hasFilters ? (
               <Link
                 href="/compose"
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+                className="ps-streaks inline-flex h-11 items-center justify-center rounded-xl bg-(--ink) px-4 text-sm font-medium text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)] transition hover:bg-[#22222a]"
               >
                 Go to Compose
               </Link>
@@ -245,21 +254,24 @@ export default function HistoryPage() {
             const isExpanded = expandedId === email.id;
 
             return (
-              <Card key={email.id} className="overflow-hidden p-0">
+              <Card
+                key={email.id}
+                className="overflow-hidden p-0 transition hover:border-(--ink)/25"
+              >
                 <button
                   type="button"
-                  className="flex w-full items-start justify-between gap-3 p-4 text-left sm:p-5"
+                  className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-(--ink)/2 sm:p-5"
                   onClick={() => setExpandedId(isExpanded ? null : email.id)}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold text-slate-900">{email.subject}</h2>
+                      <h2 className="text-base font-semibold text-(--heading)">{email.subject}</h2>
                       <StatusBadge status={email.status} />
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-(--body)">
                       To: {email.recipients?.join(", ") || "—"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-(--muted-text)">
                       {email.status === "sent"
                         ? `Sent ${formatDate(email.sent_at)}`
                         : email.status === "scheduled"
@@ -268,7 +280,7 @@ export default function HistoryPage() {
                       {email.ai_provider ? ` · ${email.ai_provider}` : ""}
                     </p>
                     {!isExpanded && email.body_text ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-slate-500">
+                      <p className="mt-2 line-clamp-2 text-sm text-(--muted-text)">
                         {email.body_text}
                       </p>
                     ) : null}
@@ -276,7 +288,7 @@ export default function HistoryPage() {
                       <p className="mt-2 text-sm text-red-600">{email.error_message}</p>
                     ) : null}
                   </div>
-                  <span className="shrink-0 text-slate-400">
+                  <span className="shrink-0 text-(--muted-text)">
                     {isExpanded ? (
                       <ChevronUp className="h-5 w-5" />
                     ) : (
@@ -286,14 +298,14 @@ export default function HistoryPage() {
                 </button>
 
                 {isExpanded ? (
-                  <div className="border-t border-slate-100 bg-slate-50 px-4 py-4 sm:px-5">
+                  <div className="border-t border-(--ink)/8 bg-(--ink)/2.5 px-4 py-4 sm:px-5">
                     {email.ai_prompt ? (
-                      <p className="mb-3 text-xs text-slate-500">
-                        <span className="font-medium text-slate-600">Context:</span>{" "}
+                      <p className="mb-3 text-xs text-(--muted-text)">
+                        <span className="font-medium text-(--body)">Context:</span>{" "}
                         {email.ai_prompt}
                       </p>
                     ) : null}
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <div className="rounded-xl border border-(--ink)/10 bg-(--surface) p-4 shadow-[0_1px_0_var(--surface)_inset]">
                       <EmailBody email={email} />
                     </div>
                   </div>
@@ -301,6 +313,18 @@ export default function HistoryPage() {
               </Card>
             );
           })}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={resultCount}
+            pageSize={pageSize}
+            disabled={loading}
+            onPageChange={(nextPage) => {
+              setExpandedId(null);
+              setPage(nextPage);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
         </div>
       ) : null}
     </div>

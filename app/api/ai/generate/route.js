@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { generateEmail } from "@/lib/ai";
 
 const generateSchema = z.object({
@@ -10,11 +10,8 @@ const generateSchema = z.object({
 });
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   try {
     const body = await request.json();
@@ -30,6 +27,8 @@ export async function POST(request) {
     const result = await generateEmail(parsed.data.prompt, {
       tone: parsed.data.tone,
       audience: parsed.data.audience,
+      workspaceId: session.workspace.id,
+      supabase: session.supabase,
     });
 
     return NextResponse.json(result);

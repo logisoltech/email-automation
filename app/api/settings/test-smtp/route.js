@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { deliverEmail } from "@/lib/email/send";
 import { formatSmtpError } from "@/lib/email/nodemailer";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 export async function POST() {
-  const session = await getSession();
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const settings = await getWorkspaceSettings(session.supabase, session.workspace.id);
 
   try {
     await deliverEmail({
-      subject: "Logisol Mail — SMTP test",
-      bodyText:
-        "This is a test email from your Logisol Mail settings page. SMTP is working correctly.",
+      subject: `${session.workspace.name} — SMTP test`,
+      bodyText: `This is a test email from your ${session.workspace.name} workspace settings. SMTP is working correctly.`,
       recipients: [session.user.email],
+      settings,
     });
 
     return NextResponse.json({

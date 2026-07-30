@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 
 const instructionSchema = z.object({
   content: z.string().min(1, "Instruction text is required.").max(4000),
 });
 
 export async function GET() {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { data, error } = await session.supabase
     .from("ai_instructions")
     .select("id, content, created_at, updated_at")
+    .eq("workspace_id", session.workspace.id)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -26,11 +24,8 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const body = await request.json();
   const parsed = instructionSchema.safeParse(body);
@@ -45,6 +40,7 @@ export async function POST(request) {
   const { data, error } = await session.supabase
     .from("ai_instructions")
     .insert({
+      workspace_id: session.workspace.id,
       created_by: session.user.id,
       content: parsed.data.content.trim(),
     })

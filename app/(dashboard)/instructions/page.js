@@ -5,6 +5,10 @@ import { Sparkles, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Pagination } from "@/components/ui/pagination";
+import { Alert } from "@/components/ui/alert";
+
+const PAGE_SIZE = 10;
 
 function formatDate(value) {
   if (!value) return "—";
@@ -20,6 +24,7 @@ export default function InstructionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [content, setContent] = useState("");
+  const [page, setPage] = useState(1);
 
   async function loadInstructions() {
     const response = await fetch("/api/ai-instructions");
@@ -113,8 +118,8 @@ export default function InstructionsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">AI Instructions</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <h1 className="page-title">AI Instructions</h1>
+          <p className="page-subtitle">
             Set rules for how the AI writes emails — compose, campaigns, and lead imports all
             follow these.
           </p>
@@ -125,17 +130,9 @@ export default function InstructionsPage() {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {success ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {success}
-        </div>
-      ) : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
 
       {showForm ? (
         <Card
@@ -147,7 +144,7 @@ export default function InstructionsPage() {
               label="Instruction"
               value={content}
               onChange={(event) => setContent(event.target.value)}
-              className="min-h-[140px]"
+              className="min-h-35"
               placeholder="Describe how the AI should write emails..."
             />
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -164,18 +161,18 @@ export default function InstructionsPage() {
 
       {loading ? (
         <Card>
-          <p className="text-sm text-slate-500">Loading instructions...</p>
+          <p className="text-sm text-(--muted-text)">Loading instructions...</p>
         </Card>
       ) : null}
 
       {!loading && instructions.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <div className="ps-streaks rounded-xl bg-(--ink) p-3 text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)]">
               <Sparkles className="h-6 w-6" />
             </div>
-            <p className="text-sm font-medium text-slate-900">No instructions yet</p>
-            <p className="max-w-md text-sm text-slate-500">
+            <p className="text-sm font-medium text-(--heading)">No instructions yet</p>
+            <p className="max-w-md text-sm text-(--muted-text)">
               Add instructions to control tone, style, or content. All active instructions are
               applied to every AI-generated email.
             </p>
@@ -189,25 +186,30 @@ export default function InstructionsPage() {
 
       {!loading && instructions.length > 0 ? (
         <div className="space-y-3">
-          <Card className="border-blue-100 bg-blue-50/50 p-4">
-            <p className="text-sm text-blue-800">
+          <Card className="border-(--ink)/12 bg-(--ink)/2.5 p-4">
+            <p className="text-sm text-(--heading)">
               <span className="font-medium">{instructions.length} active instruction</span>
               {instructions.length === 1 ? "" : "s"} — applied to Compose, lead imports, and AI
               tests.
             </p>
           </Card>
 
-          {instructions.map((instruction, index) => (
-            <Card key={instruction.id} className="p-4 sm:p-5">
+          {instructions
+            .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+            .map((instruction, index) => (
+            <Card
+              key={instruction.id}
+              className="p-4 transition hover:border-(--ink)/25 sm:p-5"
+            >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                    Instruction {index + 1}
+                  <p className="text-xs font-medium uppercase tracking-wide text-(--muted-text)">
+                    Instruction {(page - 1) * PAGE_SIZE + index + 1}
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-(--body)">
                     {instruction.content}
                   </p>
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-3 text-xs text-(--muted-text)">
                     Updated {formatDate(instruction.updated_at || instruction.created_at)}
                   </p>
                 </div>
@@ -224,6 +226,13 @@ export default function InstructionsPage() {
               </div>
             </Card>
           ))}
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(instructions.length / PAGE_SIZE))}
+            total={instructions.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
       ) : null}
     </div>

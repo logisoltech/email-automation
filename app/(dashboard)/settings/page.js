@@ -4,21 +4,26 @@ import { useEffect, useState } from "react";
 import {
   Sparkles,
   Mail,
-  ShieldCheck,
-  Clock,
+  Users,
+  Server,
   CheckCircle2,
   XCircle,
   RefreshCw,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert } from "@/components/ui/alert";
+import { AppearanceCard } from "@/components/settings/appearance-card";
 
 function StatusPill({ ok, label }) {
   return (
     <span
       className={
         ok
-          ? "inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700"
+          ? "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
           : "inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700"
       }
     >
@@ -31,229 +36,515 @@ function StatusPill({ ok, label }) {
 export default function SettingsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [testingSmtp, setTestingSmtp] = useState(false);
-  const [testingAi, setTestingAi] = useState(false);
-  const [processing, setProcessing] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [team, setTeam] = useState({ members: [], invitations: [], isOwner: false });
+  const [isOwner, setIsOwner] = useState(false);
+
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [fromName, setFromName] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [signatureText, setSignatureText] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpTlsRejectUnauthorized, setSmtpTlsRejectUnauthorized] = useState(true);
+  const [sendsPerHour, setSendsPerHour] = useState(100);
+  const [smtpLastTestedAt, setSmtpLastTestedAt] = useState(null);
+
+  async function loadAll() {
+    const [settingsRes, teamRes, sessionRes] = await Promise.all([
+      fetch("/api/settings"),
+      fetch("/api/workspaces/invitations"),
+      fetch("/api/workspaces/settings"),
+    ]);
+
+    const settingsJson = await settingsRes.json();
+    if (!settingsRes.ok) throw new Error(settingsJson.error);
+
+    const wsJson = await sessionRes.json();
+    if (sessionRes.ok) {
+      const s = wsJson.settings || {};
+      setWorkspaceName(wsJson.workspace?.name || "");
+      setFromName(s.fromName || "");
+      setFromEmail(s.fromEmail || "");
+      setSignatureText(s.signatureText || "");
+      setSmtpHost(s.smtpHost || "");
+      setSmtpPort(s.smtpPort || 587);
+      setSmtpUser(s.smtpUser || "");
+      setSmtpSecure(Boolean(s.smtpSecure));
+      setSmtpTlsRejectUnauthorized(s.smtpTlsRejectUnauthorized !== false);
+      setSmtpLastTestedAt(s.smtpLastTestedAt || null);
+      setSendsPerHour(wsJson.workspace?.sends_per_hour ?? 100);
+    }
+
+    if (teamRes.ok) {
+      const teamJson = await teamRes.json();
+      setTeam(teamJson);
+      setIsOwner(Boolean(teamJson.isOwner));
+    } else if (wsJson.workspace?.role) {
+      setIsOwner(wsJson.workspace.role === "owner");
+    } else {
+      const authRes = await fetch("/api/auth/session");
+      if (authRes.ok) {
+        const authJson = await authRes.json();
+        setIsOwner(authJson.workspace?.role === "owner");
+      }
+    }
+
+    setData(settingsJson);
+  }
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then(async (res) => {
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Failed to load settings.");
-        setData(json);
-      })
+    loadAll()
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#team") {
+      document.getElementById("team")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loading]);
+
+  async function saveSettings(extra = {}) {
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/workspaces/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceName,
+          fromName,
+          fromEmail,
+          signatureText,
+          smtpHost,
+          smtpPort: Number(smtpPort),
+          smtpUser,
+          smtpPass: smtpPass || undefined,
+          smtpSecure,
+          smtpTlsRejectUnauthorized,
+          ...extra,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setMessage("Settings saved.");
+      setSmtpPass("");
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleTestSmtp() {
     setMessage("");
     setError("");
-    setTestingSmtp(true);
-
+    setSaving(true);
     try {
-      const res = await fetch("/api/settings/test-smtp", { method: "POST" });
+      await saveSettings();
+      const res = await fetch("/api/workspaces/settings/test-smtp", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setMessage(json.message);
     } catch (err) {
       setError(err.message);
     } finally {
-      setTestingSmtp(false);
+      setSaving(false);
     }
   }
 
   async function handleTestAi() {
     setMessage("");
     setError("");
-    setTestingAi(true);
-
+    setSaving(true);
     try {
       const res = await fetch("/api/settings/test-ai", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setMessage(
-        `AI OK (${json.provider}): "${json.subject}" — ${json.preview}...`
-      );
+      setMessage(`AI OK (${json.provider}): "${json.subject}"`);
     } catch (err) {
       setError(err.message);
     } finally {
-      setTestingAi(false);
+      setSaving(false);
     }
   }
 
-  async function handleProcessScheduled() {
-    setMessage("");
+  async function handleInvite() {
     setError("");
-    setProcessing(true);
-
+    setMessage("");
+    setSaving(true);
     try {
-      const res = await fetch("/api/settings/process-scheduled", { method: "POST" });
+      const res = await fetch("/api/workspaces/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, role: "member" }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setMessage(json.message);
+      setInviteUrl(`${window.location.origin}${json.inviteUrl}`);
+      setInviteEmail("");
+      setMessage("Invitation created. Share the link with your teammate.");
+      await loadAll();
     } catch (err) {
       setError(err.message);
     } finally {
-      setProcessing(false);
+      setSaving(false);
     }
   }
 
   const settings = data?.settings;
   const activeAi = settings?.ai?.[settings?.ai?.provider];
+  const smtpUserIsEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(smtpUser);
+  const senderMismatch =
+    smtpUserIsEmail &&
+    fromEmail.trim().toLowerCase() !== smtpUser.trim().toLowerCase();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Settings</h1>
-        <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          View configuration status and test your integrations.
+        <h1 className="page-title">Settings</h1>
+        <p className="page-subtitle">
+          Manage workspace identity, SMTP delivery, team access, and AI status.
         </p>
       </div>
 
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {message ? <Alert variant="success">{message}</Alert> : null}
+
       {loading ? (
         <Card>
-          <p className="text-sm text-slate-500">Loading settings...</p>
+          <p className="text-sm text-(--muted-text)">Loading settings...</p>
         </Card>
       ) : null}
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      {message ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {message}
-        </div>
-      ) : null}
-
-      {settings ? (
+      {!loading && settings ? (
         <>
-          <Card title="AI provider" description="Switch via AI_PROVIDER in .env.local">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-slate-900">
-                  Active: {settings.ai.provider}
-                </span>
-                <StatusPill
-                  ok={Boolean(activeAi?.configured)}
-                  label={activeAi?.configured ? "Configured" : "Missing API key"}
+          {isOwner ? (
+            <Card title="Workspace & sender" description="How your emails appear to recipients">
+              <div className="space-y-4">
+                <Input
+                  label="Workspace name"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
                 />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="From name"
+                    value={fromName}
+                    onChange={(e) => setFromName(e.target.value)}
+                  />
+                  <Input
+                    label="From email"
+                    type="email"
+                    value={fromEmail}
+                    onChange={(e) => setFromEmail(e.target.value)}
+                  />
+                </div>
+                <Textarea
+                  label="Signature"
+                  value={signatureText}
+                  onChange={(e) => setSignatureText(e.target.value)}
+                />
+                <Button onClick={() => saveSettings()} loading={saving}>
+                  Save identity
+                </Button>
               </div>
-              <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="font-medium text-slate-900">Gemini</p>
-                  <p className="mt-1 text-xs">{settings.ai.gemini.model}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {settings.ai.gemini.configured
-                      ? settings.ai.gemini.keyPreview
-                      : "Not set"}
-                  </p>
+            </Card>
+          ) : (
+            <Card title="Workspace & sender" description="Managed by the workspace owner">
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4 border-b border-(--ink)/8 pb-3">
+                  <span className="text-(--muted-text)">Workspace</span>
+                  <span className="font-medium text-(--heading)">{workspaceName || "—"}</span>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="font-medium text-slate-900">Groq</p>
-                  <p className="mt-1 text-xs">{settings.ai.groq.model}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {settings.ai.groq.configured ? settings.ai.groq.keyPreview : "Not set"}
-                  </p>
+                <div className="flex justify-between gap-4 border-b border-(--ink)/8 pb-3">
+                  <span className="text-(--muted-text)">From</span>
+                  <span className="font-medium text-(--heading)">
+                    {fromName ? `${fromName} <${fromEmail || "—"}>` : fromEmail || "—"}
+                  </span>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="font-medium text-slate-900">OpenAI</p>
-                  <p className="mt-1 text-xs">{settings.ai.openai.model}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {settings.ai.openai.configured
-                      ? settings.ai.openai.keyPreview
-                      : "Not set"}
-                  </p>
-                </div>
+                <p className="text-xs font-light text-(--muted-text)">
+                  Only the owner can change sender identity and signature.
+                </p>
               </div>
-              <Button onClick={handleTestAi} loading={testingAi} variant="secondary">
-                <Sparkles className="h-4 w-4" />
-                Test AI
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          )}
 
-          <Card title="Email / SMTP" description="Configured in environment variables">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
+          {isOwner ? (
+            <Card title="SMTP delivery" description="Send through your own mail server">
+              <div className="mb-4 flex flex-wrap gap-2">
                 <StatusPill
                   ok={settings.smtp.configured}
-                  label={settings.smtp.configured ? "Configured" : "Incomplete"}
+                  label={settings.smtp.configured ? "Configured" : "Not configured"}
                 />
+                <span className="inline-flex items-center rounded-full bg-(--ink)/5 px-2.5 py-1 text-xs font-medium text-(--heading)">
+                  Up to {sendsPerHour}/hour
+                </span>
               </div>
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-slate-500">Host</dt>
-                  <dd className="font-medium text-slate-900">{settings.smtp.host || "—"}</dd>
+              <div className="space-y-4">
+                <Input
+                  label="SMTP host"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                  placeholder="mail.yourdomain.com"
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Port"
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(e.target.value)}
+                  />
+                  <Input
+                    label="Username"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                  />
                 </div>
-                <div>
-                  <dt className="text-slate-500">Port</dt>
-                  <dd className="font-medium text-slate-900">{settings.smtp.port}</dd>
+                <Input
+                  label="Password"
+                  type="password"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  hint="Leave blank to keep the existing password."
+                />
+                {senderMismatch ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <p className="font-medium">From email and SMTP mailbox do not match</p>
+                    <p className="mt-1">
+                      Your server may reject mail sent From <strong>{fromEmail}</strong> while
+                      authenticated as <strong>{smtpUser}</strong>.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="mt-3"
+                      onClick={() => setFromEmail(smtpUser)}
+                    >
+                      Use {smtpUser} as From email
+                    </Button>
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 text-sm text-(--body)">
+                  <input
+                    type="checkbox"
+                    checked={smtpSecure}
+                    onChange={(e) => setSmtpSecure(e.target.checked)}
+                    className="accent-(--ink)"
+                  />
+                  Use SSL (port 465)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-(--body)">
+                  <input
+                    type="checkbox"
+                    checked={!smtpTlsRejectUnauthorized}
+                    onChange={(e) => setSmtpTlsRejectUnauthorized(!e.target.checked)}
+                    className="accent-(--ink)"
+                  />
+                  Allow mismatched TLS certificates
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button onClick={() => saveSettings()} loading={saving} variant="secondary">
+                    <Server className="h-4 w-4" />
+                    Save SMTP
+                  </Button>
+                  <Button onClick={handleTestSmtp} loading={saving}>
+                    <Mail className="h-4 w-4" />
+                    Send test email
+                  </Button>
                 </div>
-                <div>
-                  <dt className="text-slate-500">User</dt>
-                  <dd className="font-medium text-slate-900">{settings.smtp.user || "—"}</dd>
+              </div>
+            </Card>
+          ) : (
+            <Card title="SMTP delivery" description="Managed by the workspace owner">
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <StatusPill
+                    ok={settings.smtp.configured}
+                    label={settings.smtp.configured ? "Configured" : "Not configured"}
+                  />
+                  <span className="inline-flex items-center rounded-full bg-(--ink)/5 px-2.5 py-1 text-xs font-medium text-(--heading)">
+                    Up to {sendsPerHour}/hour
+                  </span>
                 </div>
-                <div>
-                  <dt className="text-slate-500">From</dt>
-                  <dd className="font-medium text-slate-900">
-                    {settings.smtp.fromName} &lt;{settings.smtp.fromEmail}&gt;
-                  </dd>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-4 border-b border-(--ink)/8 pb-3">
+                    <span className="text-(--muted-text)">From address</span>
+                    <span className="font-medium text-(--heading)">{fromEmail || "—"}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-(--muted-text)">Last tested</span>
+                    <span className="font-medium text-(--heading)">
+                      {smtpLastTestedAt
+                        ? new Date(smtpLastTestedAt).toLocaleString()
+                        : "Not tested yet"}
+                    </span>
+                  </div>
                 </div>
-              </dl>
-              <Button onClick={handleTestSmtp} loading={testingSmtp} variant="secondary">
-                <Mail className="h-4 w-4" />
-                Send test email to me
-              </Button>
-              <p className="text-xs text-slate-500">
-                Sent mail is logged in the app under History (no inbox copies by default). To
-                also BCC yourself, add SMTP_BCC_SELF=true to .env.local.
-              </p>
+                <p className="text-xs font-light text-(--muted-text)">
+                  Only the owner can edit SMTP credentials.
+                </p>
+              </div>
+            </Card>
+          )}
+
+          <Card
+            id="team"
+            title="Team"
+            description={
+              isOwner
+                ? "Invite teammates to this workspace"
+                : "People with access to this workspace"
+            }
+          >
+            <div className="space-y-4">
+              {isOwner ? (
+                <>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex-1">
+                      <Input
+                        label="Invite email"
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="teammate@company.com"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={handleInvite} loading={saving}>
+                        <Users className="h-4 w-4" />
+                        Invite
+                      </Button>
+                    </div>
+                  </div>
+                  {inviteUrl ? (
+                    <div className="rounded-xl border border-(--ink)/10 bg-(--ink)/2.5 p-3 text-sm shadow-[0_1px_0_var(--surface)_inset]">
+                      <p className="mb-1 font-medium text-(--body)">Invite link</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 truncate text-xs text-(--body)">
+                          {inviteUrl}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigator.clipboard.writeText(inviteUrl)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {(team.invitations || []).filter((i) => i.status === "pending").length >
+                  0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-(--muted-text)">
+                        Pending invites
+                      </p>
+                      {(team.invitations || [])
+                        .filter((i) => i.status === "pending")
+                        .map((invite) => (
+                          <div
+                            key={invite.id}
+                            className="flex items-center justify-between rounded-lg border border-(--ink)/10 px-3 py-2 text-sm transition hover:border-(--ink)/25"
+                          >
+                            <span className="text-(--body)">{invite.email}</span>
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                              pending
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-(--muted-text)">
+                  Only the workspace owner can invite new teammates.
+                </p>
+              )}
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-(--muted-text)">
+                  Members ({team.members?.length || 0})
+                </p>
+                {(team.members || []).length === 0 ? (
+                  <p className="text-sm text-(--muted-text)">No members found.</p>
+                ) : null}
+                {(team.members || []).map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-lg border border-(--ink)/10 px-3 py-2 text-sm transition hover:border-(--ink)/25"
+                  >
+                    <span className="text-(--body)">
+                      {member.email || member.userId || member.user_id}
+                    </span>
+                    <span className="rounded-full bg-(--ink) px-2 py-0.5 text-xs capitalize text-(--on-ink)">
+                      {member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </Card>
 
-          <Card title="Access & scheduling">
-            <div className="space-y-4 text-sm text-slate-600">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-                <div>
-                  <p className="font-medium text-slate-900">Private team access</p>
-                  <p className="mt-1">
-                    Allowed domains:{" "}
-                    {settings.access.allowedDomains.join(", ") || "none configured"}
-                  </p>
-                  <p className="mt-1 text-xs">
-                    Signed in as {data?.user?.email}. Add users in Supabase → Authentication.
-                  </p>
-                </div>
+          <Card title="AI provider" description="Platform-managed — no key required from you">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <StatusPill
+                  ok={Boolean(activeAi?.configured)}
+                  label={activeAi?.configured ? `${settings.ai.provider} ready` : "Not configured"}
+                />
               </div>
-              <div className="flex items-start gap-3">
-                <Clock className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-                <div>
-                  <p className="font-medium text-slate-900">Scheduled sends</p>
-                  <p className="mt-1">
-                    CRON_SECRET:{" "}
-                    {settings.scheduling.cronSecretConfigured ? "configured" : "not set"}
-                  </p>
-                  <p className="mt-1 text-xs">
-                    Vercel cron runs every minute in production. Use the button below to
-                    process due items manually during local dev.
-                  </p>
-                </div>
-              </div>
-              <Button onClick={handleProcessScheduled} loading={processing} variant="secondary">
-                <RefreshCw className="h-4 w-4" />
-                Process scheduled now
+              <p className="text-sm text-(--body)">
+                Active model: <span className="font-medium">{activeAi?.model || "—"}</span>
+              </p>
+              <Button onClick={handleTestAi} loading={saving} variant="secondary">
+                <Sparkles className="h-4 w-4" />
+                Test AI generation
               </Button>
             </div>
+          </Card>
+
+          <Card title="Queue" description="Manually process scheduled items for this workspace">
+            <Button
+              variant="secondary"
+              loading={saving}
+              onClick={async () => {
+                setSaving(true);
+                setError("");
+                try {
+                  const res = await fetch("/api/settings/process-scheduled", {
+                    method: "POST",
+                  });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error);
+                  setMessage(json.message || "Processed queue.");
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Process scheduled now
+            </Button>
           </Card>
         </>
       ) : null}
+
+      <AppearanceCard />
     </div>
   );
 }

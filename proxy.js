@@ -1,22 +1,24 @@
 import { NextResponse } from "next/server";
-import { isEmailAllowed } from "@/lib/auth/allowlist";
 import {
   ACCESS_TOKEN_COOKIE,
   clearAuthCookies,
 } from "@/lib/auth/cookies";
 import { createServerClient } from "@/lib/supabase/server";
 
-const publicPaths = ["/login"];
+const publicPaths = ["/login", "/signup", "/invite"];
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/auth/login") ||
-    pathname.startsWith("/api/auth/logout") ||
+    pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/emails/process-scheduled") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    // Public invite preview (token query required)
+    (pathname === "/api/workspaces/invitations" &&
+      request.method === "GET" &&
+      request.nextUrl.searchParams.has("token"))
   ) {
     return NextResponse.next();
   }
@@ -31,6 +33,11 @@ export async function middleware(request) {
       return NextResponse.next();
     }
 
+    // API routes should return JSON, not HTML login redirects
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
@@ -40,7 +47,7 @@ export async function middleware(request) {
     const supabase = createServerClient(accessToken);
     const { data, error } = await supabase.auth.getUser(accessToken);
 
-    if (error || !data.user?.email || !isEmailAllowed(data.user.email)) {
+    if (error || !data.user?.email) {
       const response = isPublicPath
         ? NextResponse.next()
         : NextResponse.redirect(new URL("/login", request.url));
@@ -49,8 +56,16 @@ export async function middleware(request) {
       return response;
     }
 
-    if (isPublicPath) {
+    if (isPublicPath && !pathname.startsWith("/invite")) {
+      // Allow authenticated users to continue incomplete setup on /signup
+      if (pathname === "/signup" || pathname.startsWith("/signup/")) {
+        return NextResponse.next();
+      }
       return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+      return NextResponse.redirect(new URL("/signup?setup=1", request.url));
     }
 
     return NextResponse.next();

@@ -1,21 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --primary-light: #dbeafe;
-  --border: #bfdbfe;
+  /*
+   * Base palette. These seven are the only values the theme editor writes;
+   * everything below is derived from them so a custom palette stays coherent.
+   */
+  --ink: #0a0a0c;
+  --on-ink: #ffffff;
+  --surface: #ffffff;
+  --page: #eceef1;
+  --heading: #0a0a0c;
+  --body: #334155;
+  --muted-text: #64748b;
+
+  /* Derived ink shades used by the sidebar/panel gradients */
+  --ink-soft: color-mix(in srgb, var(--ink) 82%, #ffffff 18%);
+  --ink-deep: color-mix(in srgb, var(--ink) 72%, #000000 28%);
+  --ink-line: color-mix(in srgb, var(--ink) 62%, #ffffff 38%);
+
+  /* Derived paper shades */
+  --page-hi: color-mix(in srgb, var(--surface) 70%, var(--page) 30%);
+  --page-lo: color-mix(in srgb, var(--page) 88%, var(--ink) 12%);
+  --surface-lo: color-mix(in srgb, var(--surface) 92%, var(--ink) 8%);
+  --border: color-mix(in srgb, var(--surface) 84%, var(--ink) 16%);
+
+  /* Chrome accents follow the on-ink colour so they read on dark panels */
+  --chrome-hi: var(--on-ink);
+  --chrome-mid: color-mix(in srgb, var(--on-ink) 82%, var(--ink) 18%);
+  --chrome-lo: color-mix(in srgb, var(--on-ink) 60%, var(--ink) 40%);
+
+  --background: var(--page);
+  --foreground: var(--body);
+  --card: var(--surface);
+  --muted: var(--muted-text);
+
+  --primary: var(--ink);
+  --primary-dark: var(--ink-deep);
+  --primary-light: color-mix(in srgb, var(--surface) 92%, var(--ink) 8%);
+  --ring: var(--ink);
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
   --color-primary-light: var(--primary-light);
-  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
@@ -31,8 +69,253 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--on-ink);
 }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Toast progress bar (depletes left → right as the toast expires) */
+@keyframes ps-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 32%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    var(--ink-line) 0%,
+    var(--ink-soft) 55%,
+    var(--ink-deep) 100%
+  );
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--ink-soft) 0%, var(--ink-deep) 100%);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Chrome-on-ink variant for dark surfaces like the sidebar */
+.ps-scroll-chrome {
+  scrollbar-color: color-mix(in srgb, var(--on-ink) 28%, transparent) transparent;
+}
+
+.ps-scroll-chrome::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--chrome-hi) 0%,
+    var(--chrome-lo) 50%,
+    color-mix(in srgb, var(--on-ink) 42%, var(--ink) 58%) 100%
+  );
+  background-clip: content-box;
+}
+
+.ps-scroll-chrome::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--chrome-hi) 0%, var(--chrome-mid) 100%);
+  background-clip: content-box;
+}
+
+/* ---------- Printstream primitives ---------- */
+
+/*
+ * Irregular diagonal stripes imitating the skin's ink-stream print.
+ * Applied as a low-opacity overlay so it never fights foreground text.
+ */
+.ps-streaks::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    115deg,
+    transparent 0 14px,
+    color-mix(in srgb, var(--on-ink) 5%, transparent) 14px 15px,
+    transparent 15px 32px,
+    color-mix(in srgb, var(--on-ink) 8%, transparent) 32px 36px,
+    transparent 36px 61px,
+    color-mix(in srgb, var(--on-ink) 4%, transparent) 61px 62px,
+    transparent 62px 96px
+  );
+}
+
+.ps-streaks-ink::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    115deg,
+    transparent 0 16px,
+    color-mix(in srgb, var(--ink) 4.5%, transparent) 16px 18px,
+    transparent 18px 40px,
+    color-mix(in srgb, var(--ink) 3%, transparent) 40px 43px,
+    transparent 43px 78px
+  );
+}
+
+/* Opt-out: users who find the print streaks noisy can switch them off */
+.ps-no-streaks .ps-streaks::before,
+.ps-no-streaks .ps-streaks-ink::before {
+  display: none;
+}
+
+/* Glossy sheen sweeping across the top-left, like the skin's lacquer */
+.ps-gloss::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--on-ink) 55%, transparent) 0%,
+    color-mix(in srgb, var(--on-ink) 8%, transparent) 34%,
+    transparent 58%
+  );
+}
+
+/* Page backdrop */
+.ps-page {
+  background: radial-gradient(
+    120% 90% at 0% 0%,
+    var(--surface) 0%,
+    var(--page) 45%,
+    var(--page-lo) 100%
+  );
+}
+
+/* Sidebar / dark chrome backdrop */
+.ps-ink-gradient {
+  background: linear-gradient(
+    165deg,
+    var(--ink-soft) 0%,
+    var(--ink) 60%,
+    var(--ink-deep) 100%
+  );
+}
+
+/* Brushed-metal tile used for logos and icon chips on ink */
+.ps-chrome-tile {
+  background: linear-gradient(
+    160deg,
+    var(--chrome-hi) 0%,
+    var(--chrome-mid) 45%,
+    var(--chrome-lo) 100%
+  );
+}
+
+.ps-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    160deg,
+    var(--surface) 0%,
+    color-mix(in srgb, var(--surface) 96%, var(--ink) 4%) 45%,
+    var(--surface-lo) 100%
+  );
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--surface) 90%, transparent) inset,
+    0 10px 30px -18px color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.ps-panel-ink {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    155deg,
+    var(--ink-soft) 0%,
+    var(--ink) 55%,
+    var(--ink-deep) 100%
+  );
+  color: var(--on-ink);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--on-ink) 14%, transparent) inset,
+    0 24px 60px -30px color-mix(in srgb, var(--ink) 90%, transparent);
+}
+
+/* Silver gradient text for numerals and accents */
+.ps-chrome-text {
+  background: linear-gradient(
+    180deg,
+    var(--chrome-hi) 0%,
+    var(--chrome-mid) 38%,
+    var(--chrome-lo) 55%,
+    color-mix(in srgb, var(--on-ink) 93%, var(--ink) 7%) 78%,
+    color-mix(in srgb, var(--on-ink) 68%, var(--ink) 32%) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ps-chrome-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--chrome-lo) 18%,
+    var(--chrome-hi) 50%,
+    var(--chrome-lo) 82%,
+    transparent
+  );
+}
+
+.surface-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px -22px color-mix(in srgb, var(--ink) 50%, transparent);
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  color: var(--heading);
+}
+
+.page-subtitle {
+  margin-top: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 300;
+  color: var(--muted-text);
 }

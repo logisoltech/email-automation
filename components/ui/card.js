@@ -8,22 +8,18 @@ import { cn } from "@/lib/utils/cn";
  */
 export function Card({ className, title, description, children, ...props }) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-blue-100 bg-white p-6 shadow-sm shadow-blue-50",
-        className
-      )}
-      {...props}
-    >
-      {(title || description) && (
-        <div className="mb-4">
-          {title ? <h2 className="text-lg font-semibold text-slate-900">{title}</h2> : null}
+    <div className={cn("ps-card relative p-6", className)} {...props}>
+      {title ? (
+        <div className="relative mb-5">
+          <h2 className="text-base font-semibold tracking-[-0.02em] text-(--heading)">
+            {title}
+          </h2>
           {description ? (
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
+            <p className="mt-1 text-sm font-light text-(--muted-text)">{description}</p>
           ) : null}
         </div>
-      )}
-      {children}
+      ) : null}
+      <div className="relative">{children}</div>
     </div>
   );
 }

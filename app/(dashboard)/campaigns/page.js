@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Pagination } from "@/components/ui/pagination";
+import { Alert } from "@/components/ui/alert";
 
 function parseRecipients(value) {
   return value
@@ -50,7 +52,7 @@ function StatusBadge({ status }) {
   }
 
   return (
-    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+    <span className="rounded-full bg-(--ink) px-2.5 py-1 text-xs font-medium text-(--on-ink)">
       {status}
     </span>
   );
@@ -63,6 +65,13 @@ export default function CampaignsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
@@ -70,8 +79,10 @@ export default function CampaignsPage() {
   const [recipients, setRecipients] = useState("");
   const [scheduledAt, setScheduledAt] = useState(defaultScheduleValue);
 
-  async function loadCampaigns() {
-    const response = await fetch("/api/campaigns");
+  async function loadCampaigns(requestedPage = page) {
+    const response = await fetch(
+      `/api/campaigns?page=${requestedPage}&pageSize=10`
+    );
     const data = await response.json();
 
     if (!response.ok) {
@@ -79,6 +90,14 @@ export default function CampaignsPage() {
     }
 
     setCampaigns(data.campaigns ?? []);
+    setPagination(
+      data.pagination ?? {
+        page: requestedPage,
+        pageSize: 10,
+        total: data.campaigns?.length ?? 0,
+        totalPages: 1,
+      }
+    );
   }
 
   useEffect(() => {
@@ -132,7 +151,8 @@ export default function CampaignsPage() {
       setBodyText("");
       setRecipients("");
       setShowForm(false);
-      await loadCampaigns();
+      setPage(1);
+      await loadCampaigns(1);
     } catch {
       setError("Something went wrong.");
     } finally {
@@ -144,8 +164,8 @@ export default function CampaignsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Campaigns</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <h1 className="page-title">Campaigns</h1>
+          <p className="page-subtitle">
             Send one email to a batch of recipients, now or on a schedule.
           </p>
         </div>
@@ -155,17 +175,9 @@ export default function CampaignsPage() {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {success ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {success}
-        </div>
-      ) : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
 
       {showForm ? (
         <Card title="Create campaign" description="One message, multiple recipients.">
@@ -185,14 +197,14 @@ export default function CampaignsPage() {
               label="Body"
               value={bodyText}
               onChange={(event) => setBodyText(event.target.value)}
-              className="min-h-[180px]"
+              className="min-h-45"
             />
             <Textarea
               label="Recipients"
               value={recipients}
               onChange={(event) => setRecipients(event.target.value)}
               placeholder="one@example.com, two@example.com"
-              className="min-h-[100px]"
+              className="min-h-25"
             />
             <Input
               label="Schedule for later"
@@ -225,18 +237,18 @@ export default function CampaignsPage() {
 
       {loading ? (
         <Card>
-          <p className="text-sm text-slate-500">Loading campaigns...</p>
+          <p className="text-sm text-(--muted-text)">Loading campaigns...</p>
         </Card>
       ) : null}
 
       {!loading && campaigns.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <div className="ps-streaks rounded-xl bg-(--ink) p-3 text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)]">
               <Megaphone className="h-6 w-6" />
             </div>
-            <p className="text-sm font-medium text-slate-900">No campaigns yet</p>
-            <p className="max-w-sm text-sm text-slate-500">
+            <p className="text-sm font-medium text-(--heading)">No campaigns yet</p>
+            <p className="max-w-sm text-sm text-(--muted-text)">
               Create a campaign to email multiple recipients at once.
             </p>
           </div>
@@ -246,15 +258,18 @@ export default function CampaignsPage() {
       {!loading && campaigns.length > 0 ? (
         <div className="space-y-3">
           {campaigns.map((campaign) => (
-            <Card key={campaign.id} className="p-4 sm:p-5">
+            <Card
+              key={campaign.id}
+              className="p-4 transition hover:border-(--ink)/25 sm:p-5"
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold text-slate-900">{campaign.name}</h2>
+                    <h2 className="text-base font-semibold text-(--heading)">{campaign.name}</h2>
                     <StatusBadge status={campaign.status} />
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{campaign.subject}</p>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-2 text-sm text-(--body)">{campaign.subject}</p>
+                  <p className="mt-1 text-sm text-(--muted-text)">
                     {campaign.recipients?.length ?? 0} recipients
                   </p>
                   {campaign.scheduled_at ? (
@@ -269,11 +284,28 @@ export default function CampaignsPage() {
               </div>
             </Card>
           ))}
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            pageSize={pagination.pageSize}
+            disabled={loading}
+            onPageChange={(nextPage) => {
+              setPage(nextPage);
+              setLoading(true);
+              loadCampaigns(nextPage)
+                .catch((err) => setError(err.message))
+                .finally(() => setLoading(false));
+            }}
+          />
         </div>
       ) : null}
 
       <Card title="Tip" description="Generate copy in Compose, then paste it here for batch sends.">
-        <Link href="/compose" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+        <Link
+          href="/compose"
+          className="text-sm font-medium text-(--heading) underline decoration-(--ink)/25 underline-offset-4 transition hover:decoration-(--ink)"
+        >
           Open Compose →
         </Link>
       </Card>

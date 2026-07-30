@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 function parseRecipients(value) {
   return value
@@ -211,29 +212,21 @@ function ComposeForm() {
 
   return (
     <>
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {success ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          {success}
-        </div>
-      ) : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
 
       <Card title="Load template" description="Start from a saved team template or generate with AI.">
         <div className="space-y-4">
           <div>
-            <label htmlFor="template-select" className="mb-2 block text-sm font-medium text-slate-700">
+            <label htmlFor="template-select" className="mb-2 block text-sm font-medium text-(--body)">
               Template
             </label>
             <select
               id="template-select"
               value={selectedTemplate}
               onChange={handleTemplateSelect}
-              className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="flex h-11 w-full rounded-xl border border-(--ink)/12 bg-(--surface) px-3.5 text-sm text-(--heading) shadow-[0_1px_0_var(--surface)_inset] transition focus:border-(--ink) focus:outline-none focus:ring-2 focus:ring-(--ink)/10"
             >
               <option value="">Choose a template (optional)</option>
               {templates.map((template) => (
@@ -244,9 +237,12 @@ function ComposeForm() {
             </select>
           </div>
           {templates.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-(--muted-text)">
               No templates yet.{" "}
-              <Link href="/templates" className="font-medium text-blue-600 hover:text-blue-700">
+              <Link
+                href="/templates"
+                className="font-medium text-(--heading) underline decoration-(--ink)/25 underline-offset-4 transition hover:decoration-(--ink)"
+              >
                 Create one
               </Link>
             </p>
@@ -261,7 +257,7 @@ function ComposeForm() {
             placeholder="e.g. Follow up with a client about our proposal sent last week."
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            className="min-h-[140px]"
+            className="min-h-35"
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
@@ -294,7 +290,7 @@ function ComposeForm() {
             label="Body"
             value={bodyText}
             onChange={(event) => setBodyText(event.target.value)}
-            className="min-h-[220px]"
+            className="min-h-55"
             placeholder="Email body will appear here after generation or template load"
           />
           <Input
@@ -303,7 +299,7 @@ function ComposeForm() {
             onChange={(event) => setRecipients(event.target.value)}
             placeholder="client@example.com, partner@example.com"
           />
-          <p className="text-xs text-slate-500">Separate multiple emails with commas.</p>
+          <p className="text-xs text-(--muted-text)">Separate multiple emails with commas.</p>
 
           <Input
             label="Schedule for later"
@@ -347,8 +343,8 @@ export default function ComposePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Compose</h1>
-        <p className="mt-2 text-sm text-slate-600 sm:text-base">
+        <h1 className="page-title">Compose</h1>
+        <p className="page-subtitle">
           Load a template, generate with AI, then send now or schedule for later.
         </p>
       </div>
@@ -356,7 +352,7 @@ export default function ComposePage() {
       <Suspense
         fallback={
           <Card>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-(--muted-text)">
               <FileText className="h-4 w-4" />
               Loading compose...
             </div>

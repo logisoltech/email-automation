@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 /**
  * @param {import("next/server").NextRequest} request
  * @param {{ params: Promise<{ id: string }> }} context
  */
 export async function POST(request, { params }) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { id } = await params;
+  const workspaceId = session.workspace.id;
 
   const { data: batch, error: batchError } = await session.supabase
     .from("lead_batches")
     .select("*")
     .eq("id", id)
-    .single();
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
 
   if (batchError || !batch) {
     return NextResponse.json({ error: "Batch not found." }, { status: 404 });
@@ -31,10 +31,19 @@ export async function POST(request, { params }) {
     );
   }
 
+  const settings = await getWorkspaceSettings(session.supabase, workspaceId);
+
+  if (!settings?.smtp_configured && !process.env.SMTP_HOST) {
+    return NextResponse.json(
+      { error: "Configure SMTP in workspace settings before sending." },
+      { status: 400 }
+    );
+  }
+
   const { data: generatedLeads, error: countError } = await session.supabase
     .from("leads")
     .select("id")
-    .eq("batch_id", id)
+    .eq("batch_id", batch.id)
     .eq("status", "generated");
 
   if (countError) {
@@ -51,7 +60,7 @@ export async function POST(request, { params }) {
   await session.supabase
     .from("leads")
     .update({ status: "queued" })
-    .eq("batch_id", id)
+    .eq("batch_id", batch.id)
     .eq("status", "generated");
 
   await session.supabase
@@ -61,7 +70,8 @@ export async function POST(request, { params }) {
       last_send_at: null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", batch.id)
+    .eq("workspace_id", workspaceId);
 
   return NextResponse.json({
     success: true,

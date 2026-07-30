@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
 import { wrapEmailHtml } from "@/lib/email/templates";
 
@@ -14,11 +14,8 @@ const scheduleSchema = z.object({
 });
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const body = await request.json();
   const parsed = scheduleSchema.safeParse(body);
@@ -48,6 +45,7 @@ export async function POST(request) {
   const { data, error } = await session.supabase
     .from("emails")
     .insert({
+      workspace_id: session.workspace.id,
       sent_by: session.user.id,
       subject,
       body_html: html,

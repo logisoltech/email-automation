@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 
 const leadSchema = z.object({
   sortOrder: z.number(),
@@ -21,15 +21,13 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const { data, error } = await session.supabase
     .from("lead_batches")
     .select("id, name, type, status, sends_per_hour, created_at, updated_at")
+    .eq("workspace_id", session.workspace.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -41,11 +39,8 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
@@ -58,15 +53,18 @@ export async function POST(request) {
   }
 
   const { type, name, leads, sendsPerHour } = parsed.data;
+  const workspaceId = session.workspace.id;
+  const workspaceQuota = session.workspace.sends_per_hour ?? 100;
 
   const { data: batch, error: batchError } = await session.supabase
     .from("lead_batches")
     .insert({
+      workspace_id: workspaceId,
       created_by: session.user.id,
       type,
       name,
       status: "generating",
-      sends_per_hour: sendsPerHour ?? 100,
+      sends_per_hour: Math.min(sendsPerHour ?? workspaceQuota, workspaceQuota),
     })
     .select("*")
     .single();
@@ -92,7 +90,11 @@ export async function POST(request) {
   const { error: leadsError } = await session.supabase.from("leads").insert(rows);
 
   if (leadsError) {
-    await session.supabase.from("lead_batches").delete().eq("id", batch.id);
+    await session.supabase
+      .from("lead_batches")
+      .delete()
+      .eq("id", batch.id)
+      .eq("workspace_id", workspaceId);
     return NextResponse.json({ error: leadsError.message }, { status: 500 });
   }
 

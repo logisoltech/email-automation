@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 
 export async function GET() {
-  const session = await getSession();
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const workspaceId = session.workspace.id;
 
   const [emailsResult, campaignsResult] = await Promise.all([
-    session.supabase.from("emails").select("status"),
-    session.supabase.from("campaigns").select("status"),
+    session.supabase.from("emails").select("status").eq("workspace_id", workspaceId),
+    session.supabase.from("campaigns").select("status").eq("workspace_id", workspaceId),
   ]);
 
   if (emailsResult.error) {

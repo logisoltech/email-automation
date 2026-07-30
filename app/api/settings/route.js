@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/get-session";
+import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getSettingsStatus } from "@/lib/settings/config";
+import { getWorkspaceSettings, publicWorkspaceSettings } from "@/lib/workspaces";
 
 export async function GET() {
-  const session = await getSession();
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const workspaceSettings = await getWorkspaceSettings(
+    session.supabase,
+    session.workspace.id
+  );
 
   return NextResponse.json({
     user: session.user,
-    settings: getSettingsStatus(),
+    workspace: session.workspace,
+    workspaceSettings: publicWorkspaceSettings(workspaceSettings),
+    settings: getSettingsStatus(workspaceSettings),
   });
 }

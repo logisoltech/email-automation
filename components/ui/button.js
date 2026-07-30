@@ -18,12 +18,12 @@ export function Button({
 }) {
   const variants = {
     primary:
-      "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500 shadow-sm",
+      "bg-(--ink) text-(--on-ink) hover:bg-(--ink-soft) focus-visible:ring-(--ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)]",
     secondary:
-      "border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 focus-visible:ring-blue-500",
-    ghost: "text-slate-600 hover:bg-blue-50 hover:text-blue-700 focus-visible:ring-blue-500",
-    danger:
-      "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 shadow-sm",
+      "border border-(--ink)/15 bg-(--surface) text-(--ink)! hover:bg-(--surface-lo) focus-visible:ring-(--ink)",
+    ghost:
+      "text-(--body) hover:bg-(--ink)/5 hover:text-(--heading) focus-visible:ring-(--ink)",
+    danger: "bg-red-600 text-(--on-ink) hover:bg-red-700 focus-visible:ring-red-500 shadow-sm",
   };
 
   const sizes = {
@@ -35,7 +35,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],
         className
