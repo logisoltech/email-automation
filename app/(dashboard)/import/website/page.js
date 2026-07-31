@@ -1,11 +1,6 @@
-import { ImportLeadsWorkflow } from "@/components/leads/import-workflow";
+import { redirect } from "next/navigation";
 
-export default function WebsiteLeadsPage() {
-  return (
-    <ImportLeadsWorkflow
-      type="website"
-      title="Website Leads"
-      description="Paste software & web dev leads from Google Sheets. AI writes a personalized outreach email for each — review, then send at 100/hour."
-    />
-  );
+/** Legacy route — Website + SMM import now live under /leads. */
+export default function WebsiteLeadsRedirectPage() {
+  redirect("/leads");
 }

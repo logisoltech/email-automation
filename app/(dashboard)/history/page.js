@@ -234,14 +234,14 @@ export default function HistoryPage() {
             <p className="max-w-sm text-sm text-(--muted-text)">
               {hasFilters
                 ? "Try a different search term or clear your filters."
-                : "Compose your first AI-assisted email and it will show up here."}
+                : "Write your first personalized email and it will show up here."}
             </p>
             {!hasFilters ? (
               <Link
                 href="/compose"
                 className="ps-streaks inline-flex h-11 items-center justify-center rounded-xl bg-(--ink) px-4 text-sm font-medium text-(--on-ink) shadow-[0_10px_24px_-14px_rgba(10,10,12,0.9)] transition hover:bg-[#22222a]"
               >
-                Go to Compose
+                Go to Personalized
               </Link>
             ) : null}
           </div>

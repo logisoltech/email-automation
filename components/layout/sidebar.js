@@ -9,8 +9,7 @@ import {
   Megaphone,
   Settings,
   FileText,
-  Globe,
-  Share2,
+  Users,
   Sparkles,
   X,
   ChevronsUpDown,
@@ -19,10 +18,9 @@ import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/compose", label: "Compose", icon: Mail },
+  { href: "/compose", label: "Personalized", icon: Mail },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/import/website", label: "Website Leads", icon: Globe },
-  { href: "/import/smm", label: "SMM Leads", icon: Share2 },
+  { href: "/leads", label: "Leads", icon: Users },
   { href: "/templates", label: "Templates", icon: FileText },
   { href: "/instructions", label: "AI Instructions", icon: Sparkles },
   { href: "/history", label: "History", icon: History },

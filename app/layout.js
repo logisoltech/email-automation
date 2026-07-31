@@ -2,6 +2,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Notifications } from "@/components/ui/notifications";
 import { ThemeScript } from "@/components/theme/theme-script";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -22,8 +23,10 @@ export default function RootLayout({ children }) {
         <ThemeScript />
       </head>
       <body className="min-h-full antialiased">
-        {children}
-        <Notifications />
+        <QueryProvider>
+          {children}
+          <Notifications />
+        </QueryProvider>
       </body>
     </html>
   );

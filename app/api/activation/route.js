@@ -20,10 +20,14 @@ async function buildActivation(session) {
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
   const smtpConfigured = Boolean(settings?.smtp_configured);
 
-  const [{ count: batchCount }, { count: memberCount }, { count: inviteCount }] =
+  const [{ count: batchCount }, { count: leadCount }, { count: memberCount }, { count: inviteCount }] =
     await Promise.all([
       session.supabase
         .from("lead_batches")
+        .select("*", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId),
+      session.supabase
+        .from("leads")
         .select("*", { count: "exact", head: true })
         .eq("workspace_id", workspaceId),
       session.supabase
@@ -55,6 +59,26 @@ async function buildActivation(session) {
     hasGenerated = (generatedCount ?? 0) > 0;
   }
 
+  if (!hasGenerated) {
+    const { data: workspaceCampaigns } = await session.supabase
+      .from("campaigns")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .limit(200);
+
+    if (workspaceCampaigns?.length) {
+      const { count: campaignGenerated } = await session.supabase
+        .from("campaign_leads")
+        .select("*", { count: "exact", head: true })
+        .in(
+          "campaign_id",
+          workspaceCampaigns.map((c) => c.id)
+        )
+        .in("status", ["generated", "queued", "sending", "sent"]);
+      hasGenerated = (campaignGenerated ?? 0) > 0;
+    }
+  }
+
   const [{ count: sentEmails }, { count: sentLeads }] = await Promise.all([
     session.supabase
       .from("emails")
@@ -73,8 +97,28 @@ async function buildActivation(session) {
       : Promise.resolve({ count: 0 }),
   ]);
 
-  const hasSent = (sentEmails ?? 0) > 0 || (sentLeads ?? 0) > 0;
-  const hasImported = (batchCount ?? 0) > 0;
+  let sentCampaignLeads = 0;
+  {
+    const { data: workspaceCampaigns } = await session.supabase
+      .from("campaigns")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .limit(200);
+    if (workspaceCampaigns?.length) {
+      const { count } = await session.supabase
+        .from("campaign_leads")
+        .select("*", { count: "exact", head: true })
+        .in(
+          "campaign_id",
+          workspaceCampaigns.map((c) => c.id)
+        )
+        .eq("status", "sent");
+      sentCampaignLeads = count ?? 0;
+    }
+  }
+
+  const hasSent = (sentEmails ?? 0) > 0 || (sentLeads ?? 0) > 0 || sentCampaignLeads > 0;
+  const hasImported = (batchCount ?? 0) > 0 || (leadCount ?? 0) > 0;
   const hasTeammate = (memberCount ?? 0) > 1 || (inviteCount ?? 0) > 0;
 
   /** @type {Array<{ id: string; title: string; hint: string; href: string; done: boolean; hidden?: boolean }>} */
@@ -94,22 +138,22 @@ async function buildActivation(session) {
     {
       id: "import",
       title: "Import leads",
-      hint: "Paste a few rows from Sheets to create your first batch.",
-      href: "/import/website",
+      hint: "Paste a few rows from Sheets into Leads.",
+      href: "/leads",
       done: hasImported,
     },
     {
       id: "generate",
       title: "Generate with AI",
-      hint: "Let AI write personalized emails for your leads.",
-      href: hasImported ? "/import/website" : "/import/website",
+      hint: "Create a campaign and let AI write personalized emails.",
+      href: "/campaigns?new=1",
       done: hasGenerated,
     },
     {
       id: "send",
       title: "Send your first email",
-      hint: "Queue a batch or send a one-off from Compose.",
-      href: hasGenerated ? "/import/website" : "/compose",
+      hint: "Queue a campaign or send a one-off from Personalized.",
+      href: hasGenerated ? "/campaigns" : "/compose",
       done: hasSent,
     }
   );

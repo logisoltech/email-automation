@@ -189,7 +189,7 @@ export default function InstructionsPage() {
           <Card className="border-(--ink)/12 bg-(--ink)/2.5 p-4">
             <p className="text-sm text-(--heading)">
               <span className="font-medium">{instructions.length} active instruction</span>
-              {instructions.length === 1 ? "" : "s"} — applied to Compose, lead imports, and AI
+              {instructions.length === 1 ? "" : "s"} — applied to Personalized, lead imports, and AI
               tests.
             </p>
           </Card>

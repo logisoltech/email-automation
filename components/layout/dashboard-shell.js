@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { fetchJson, queryKeys } from "@/lib/query";
 
 /**
  * @param {{ children: import("react").ReactNode }} props
@@ -11,33 +13,38 @@ import { Header } from "@/components/layout/header";
 export function DashboardShell({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
-  const [workspace, setWorkspace] = useState(null);
-  const [workspaces, setWorkspaces] = useState([]);
+
+  const sessionQuery = useQuery({
+    queryKey: queryKeys.session(),
+    queryFn: () => fetchJson("/api/auth/session"),
+    staleTime: 60_000,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetch("/api/auth/session")
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) {
-          router.push("/login");
-          return;
-        }
-        if (!data.workspace) {
-          router.push("/signup?setup=1");
-          return;
-        }
-        if (data.needsOnboarding && !pathname.startsWith("/signup")) {
-          router.push("/signup?setup=1");
-          return;
-        }
-        setUserEmail(data.user?.email || "");
-        setWorkspace(data.workspace);
-        setWorkspaces(data.workspaces || []);
-      })
-      .catch(() => router.push("/login"));
-  }, [router, pathname]);
+    if (sessionQuery.isError && !sessionQuery.data?.workspace) {
+      router.push("/login");
+      return;
+    }
+
+    const data = sessionQuery.data;
+    if (!data) return;
+
+    if (!data.workspace) {
+      router.push("/signup?setup=1");
+      return;
+    }
+
+    if (data.needsOnboarding && !pathname.startsWith("/signup")) {
+      router.push("/signup?setup=1");
+    }
+  }, [sessionQuery.isError, sessionQuery.data, router, pathname]);
+
+  const userEmail = sessionQuery.data?.user?.email || "";
+  const workspace = sessionQuery.data?.workspace || null;
+  const workspaces = sessionQuery.data?.workspaces || [];
 
   async function handleSwitchWorkspace(workspaceId) {
     const res = await fetch("/api/workspaces", {
@@ -46,7 +53,7 @@ export function DashboardShell({ children }) {
       body: JSON.stringify({ workspaceId }),
     });
     if (res.ok) {
-      router.refresh();
+      queryClient.clear();
       window.location.href = "/";
     }
   }
@@ -80,13 +87,15 @@ export function DashboardShell({ children }) {
         </div>
       ) : null}
 
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-64">
         <Header
           onMenuClick={() => setMobileOpen(true)}
           userEmail={userEmail}
           workspaceName={workspace?.name}
         />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </main>
       </div>
     </div>
   );

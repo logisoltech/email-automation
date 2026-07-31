@@ -1,50 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MailPlus,
   Clock,
   Megaphone,
   ArrowRight,
   ArrowUpRight,
-  Globe,
-  Share2,
+  Users,
   Sparkles,
   AlertTriangle,
 } from "lucide-react";
 import { ActivationChecklist } from "@/components/dashboard/activation-checklist";
+import { fetchJson, queryKeys } from "@/lib/query";
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
+  const queryClient = useQueryClient();
+  const [dismissing, setDismissing] = useState(false);
+
+  const statsQuery = useQuery({
+    queryKey: queryKeys.stats(),
+    queryFn: () => fetchJson("/api/analytics/stats"),
+    staleTime: 60_000,
+  });
+
+  const sessionQuery = useQuery({
+    queryKey: queryKeys.session(),
+    queryFn: () => fetchJson("/api/auth/session"),
+    staleTime: 60_000,
+  });
+
+  const activationQuery = useQuery({
+    queryKey: queryKeys.activation(),
+    queryFn: () => fetchJson("/api/activation"),
+    staleTime: 60_000,
+  });
+
+  const stats = {
     sent: 0,
     scheduled: 0,
     failed: 0,
     campaigns: 0,
     campaignSent: 0,
-  });
-  const [workspaceName, setWorkspaceName] = useState("");
-  const [activation, setActivation] = useState(null);
-  const [dismissing, setDismissing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/analytics/stats").then((r) => r.json()),
-      fetch("/api/auth/session").then((r) => r.json()),
-      fetch("/api/activation").then((r) => r.json()),
-    ])
-      .then(([statsData, sessionData, activationData]) => {
-        if (statsData?.stats && !statsData.error) {
-          setStats((current) => ({ ...current, ...statsData.stats }));
-        }
-        setWorkspaceName(sessionData.workspace?.name || "");
-        if (activationData?.activation) {
-          setActivation(activationData.activation);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    ...(statsQuery.data?.stats || {}),
+  };
+  const workspaceName = sessionQuery.data?.workspace?.name || "";
+  const activation = activationQuery.data?.activation || null;
+  const loading = statsQuery.isLoading && !statsQuery.data;
 
   async function dismissActivation() {
     setDismissing(true);
@@ -55,9 +59,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ dismiss: true }),
       });
       if (res.ok) {
-        setActivation((current) =>
-          current ? { ...current, dismissed: true, visible: false } : current
-        );
+        await queryClient.invalidateQueries({ queryKey: queryKeys.activation() });
       }
     } finally {
       setDismissing(false);
@@ -99,21 +101,21 @@ export default function DashboardPage() {
   const quickLinks = [
     {
       href: "/compose",
-      title: "Compose email",
+      title: "Personalized email",
       description: "Write with AI, then send or schedule it.",
       icon: Sparkles,
     },
     {
-      href: "/import/website",
-      title: "Website leads",
-      description: "Paste Sheets rows and personalize at scale.",
-      icon: Globe,
+      href: "/leads",
+      title: "Leads",
+      description: "Import contacts and organize by subcategory.",
+      icon: Users,
     },
     {
-      href: "/import/smm",
-      title: "SMM leads",
-      description: "Outreach built for marketing prospects.",
-      icon: Share2,
+      href: "/campaigns?new=1",
+      title: "New campaign",
+      description: "Pick leads, generate personalized emails, send.",
+      icon: Megaphone,
     },
   ];
 
@@ -147,11 +149,11 @@ export default function DashboardPage() {
                 href="/compose"
                 className="group inline-flex h-11 items-center gap-2 rounded-xl bg-(--on-ink) px-5 text-sm font-medium text-(--ink)! transition hover:bg-(--on-ink)/90"
               >
-                Compose email
+                Personalized email
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="/import/website"
+                href="/leads"
                 className="inline-flex h-11 items-center gap-2 rounded-xl border border-(--on-ink)/20 px-5 text-sm font-medium text-(--on-ink)/80 transition hover:border-(--on-ink)/40 hover:text-(--on-ink)"
               >
                 Import leads

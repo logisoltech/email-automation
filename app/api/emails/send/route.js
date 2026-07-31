@@ -14,6 +14,8 @@ const sendSchema = z.object({
     .array(z.string().email())
     .min(1, "Add at least one recipient."),
   aiPrompt: z.string().optional(),
+  logoUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+  signatureImageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
 });
 
 export async function POST(request) {
@@ -30,7 +32,8 @@ export async function POST(request) {
     );
   }
 
-  const { subject, bodyText, bodyHtml, recipients, aiPrompt } = parsed.data;
+  const { subject, bodyText, bodyHtml, recipients, aiPrompt, logoUrl, signatureImageUrl } =
+    parsed.data;
   const workspaceId = session.workspace.id;
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
 
@@ -41,6 +44,8 @@ export async function POST(request) {
       bodyHtml,
       recipients,
       settings,
+      logoUrl: logoUrl || null,
+      signatureImageUrl: signatureImageUrl || null,
     });
 
     const { data, error } = await session.supabase

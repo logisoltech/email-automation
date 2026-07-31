@@ -319,3 +319,16 @@ code {
   font-weight: 300;
   color: var(--muted-text);
 }
+
+/* TipTap rich text editor */
+.tiptap p.is-editor-empty:first-child::before {
+  color: var(--muted-text);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.tiptap:focus {
+  outline: none;
+}

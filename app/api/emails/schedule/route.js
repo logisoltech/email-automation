@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
-import { wrapEmailHtml } from "@/lib/email/templates";
+import {
+  buildBrandedEmailHtml,
+  buildBrandedEmailText,
+  signatureFromSettings,
+} from "@/lib/email/signature";
+import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const scheduleSchema = z.object({
   subject: z.string().min(1, "Subject is required."),
@@ -11,6 +16,8 @@ const scheduleSchema = z.object({
   recipients: z.array(z.string().email()).min(1, "Add at least one recipient."),
   scheduledAt: z.string().min(1, "Pick a schedule time."),
   aiPrompt: z.string().optional(),
+  logoUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+  signatureImageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
 });
 
 export async function POST(request) {
@@ -27,7 +34,16 @@ export async function POST(request) {
     );
   }
 
-  const { subject, bodyText, bodyHtml, recipients, scheduledAt, aiPrompt } = parsed.data;
+  const {
+    subject,
+    bodyText,
+    bodyHtml,
+    recipients,
+    scheduledAt,
+    aiPrompt,
+    logoUrl,
+    signatureImageUrl,
+  } = parsed.data;
 
   if (Number.isNaN(new Date(scheduledAt).getTime())) {
     return NextResponse.json({ error: "Invalid schedule time." }, { status: 400 });
@@ -40,7 +56,18 @@ export async function POST(request) {
     );
   }
 
-  const html = wrapEmailHtml(bodyHtml || bodyText.replace(/\n/g, "<br>"));
+  const settings = await getWorkspaceSettings(session.supabase, session.workspace.id);
+  const signature = signatureFromSettings(settings);
+  const brandedInner = buildBrandedEmailHtml({
+    bodyText,
+    bodyHtml,
+    logoUrl: logoUrl || null,
+    signatureImageUrl: signatureImageUrl || null,
+    workspaceSignature: signature,
+  });
+  const text = buildBrandedEmailText(bodyText, signature, signatureImageUrl || null);
+  // Store branded inner HTML (not full document) so deliverEmail wraps once on send
+  const html = brandedInner;
 
   const { data, error } = await session.supabase
     .from("emails")
@@ -49,7 +76,7 @@ export async function POST(request) {
       sent_by: session.user.id,
       subject,
       body_html: html,
-      body_text: bodyText,
+      body_text: text,
       recipients,
       status: "scheduled",
       scheduled_at: scheduledAt,

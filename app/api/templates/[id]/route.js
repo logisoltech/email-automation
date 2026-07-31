@@ -1,13 +1,29 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
+import { TEMPLATE_SELECT, publicTemplate } from "@/lib/templates";
 
 const templateSchema = z.object({
   name: z.string().min(1, "Template name is required."),
   subject: z.string().min(1, "Subject is required."),
   bodyText: z.string().min(1, "Body is required."),
   bodyHtml: z.string().optional(),
+  logoUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+  signatureImageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
 });
+
+/**
+ * @param {z.infer<typeof templateSchema>} data
+ */
+function brandingFields(data) {
+  return {
+    logo_url: data.logoUrl === "" || data.logoUrl === undefined ? null : data.logoUrl,
+    signature_image_url:
+      data.signatureImageUrl === "" || data.signatureImageUrl === undefined
+        ? null
+        : data.signatureImageUrl,
+  };
+}
 
 /**
  * @param {import("next/server").NextRequest} request
@@ -29,6 +45,7 @@ export async function PUT(request, { params }) {
   }
 
   const { name, subject, bodyText, bodyHtml } = parsed.data;
+  const branding = brandingFields(parsed.data);
 
   const { data, error } = await session.supabase
     .from("email_templates")
@@ -38,10 +55,11 @@ export async function PUT(request, { params }) {
       body_text: bodyText,
       body_html: bodyHtml || bodyText.replace(/\n/g, "<br>"),
       updated_at: new Date().toISOString(),
+      ...branding,
     })
     .eq("id", id)
     .eq("workspace_id", session.workspace.id)
-    .select("id, name, subject, body_text, body_html, created_at, updated_at")
+    .select(TEMPLATE_SELECT)
     .maybeSingle();
 
   if (error) {
@@ -52,7 +70,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "Template not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ template: data });
+  return NextResponse.json({ template: publicTemplate(data) });
 }
 
 /**

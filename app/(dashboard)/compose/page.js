@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Send, RotateCcw, Clock, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { fetchJson, queryKeys } from "@/lib/query";
 
 function parseRecipients(value) {
   return value
@@ -34,20 +37,22 @@ function ComposeForm() {
   const [bodyHtml, setBodyHtml] = useState("");
   const [recipients, setRecipients] = useState("");
   const [scheduledAt, setScheduledAt] = useState(defaultScheduleValue);
-  const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [signatureImageUrl, setSignatureImageUrl] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
 
-  useEffect(() => {
-    fetch("/api/templates")
-      .then((res) => (res.ok ? res.json() : { templates: [] }))
-      .then((data) => setTemplates(data.templates ?? []))
-      .catch(() => {});
-  }, []);
+  const templatesQuery = useQuery({
+    queryKey: queryKeys.templates(),
+    queryFn: () => fetchJson("/api/templates"),
+    staleTime: 3 * 60_000,
+  });
+  const templates = templatesQuery.data?.templates ?? [];
 
   useEffect(() => {
     const templateId = searchParams.get("template");
@@ -63,7 +68,10 @@ function ComposeForm() {
     setSubject(template.subject);
     setBodyText(template.body_text);
     setBodyHtml(template.body_html || template.body_text);
+    setLogoUrl(template.logo_url || "");
+    setSignatureImageUrl(template.signature_image_url || "");
     setSelectedTemplate(template.id);
+    setEditorKey((k) => k + 1);
     setSuccess(`Loaded template: ${template.name}`);
     setError("");
   }
@@ -72,7 +80,11 @@ function ComposeForm() {
     const id = event.target.value;
     setSelectedTemplate(id);
 
-    if (!id) return;
+    if (!id) {
+      setLogoUrl("");
+      setSignatureImageUrl("");
+      return;
+    }
 
     const template = templates.find((item) => item.id === id);
     if (template) applyTemplate(template);
@@ -100,6 +112,7 @@ function ComposeForm() {
       setSubject(data.subject);
       setBodyText(data.bodyText);
       setBodyHtml(data.bodyHtml);
+      setEditorKey((k) => k + 1);
       setSuccess("Email generated. Review and edit before sending.");
     } catch {
       setError("Something went wrong while generating.");
@@ -131,6 +144,8 @@ function ComposeForm() {
           bodyHtml,
           recipients: recipientList,
           aiPrompt: prompt || undefined,
+          logoUrl: logoUrl || null,
+          signatureImageUrl: signatureImageUrl || null,
         }),
       });
 
@@ -179,6 +194,8 @@ function ComposeForm() {
           recipients: recipientList,
           scheduledAt: new Date(scheduledAt).toISOString(),
           aiPrompt: prompt || undefined,
+          logoUrl: logoUrl || null,
+          signatureImageUrl: signatureImageUrl || null,
         }),
       });
 
@@ -205,7 +222,10 @@ function ComposeForm() {
     setBodyHtml("");
     setRecipients("");
     setSelectedTemplate("");
+    setLogoUrl("");
+    setSignatureImageUrl("");
     setScheduledAt(defaultScheduleValue());
+    setEditorKey((k) => k + 1);
     setError("");
     setSuccess("");
   }
@@ -280,17 +300,47 @@ function ComposeForm() {
 
       <Card title="Email preview" description="Edit the subject and body before sending.">
         <div className="space-y-4">
+          {logoUrl || signatureImageUrl ? (
+            <div className="rounded-xl border border-(--ink)/10 bg-white p-4 text-sm text-slate-900">
+              <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                Branding from template
+              </p>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="mb-3 max-h-12 max-w-[160px] object-contain"
+                />
+              ) : null}
+              {signatureImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={signatureImageUrl}
+                  alt="Signature"
+                  className="max-h-20 max-w-[240px] object-contain"
+                />
+              ) : null}
+              <p className="mt-2 text-xs text-slate-500">
+                Logo appears at the top; image signature replaces your workspace text signature.
+              </p>
+            </div>
+          ) : null}
           <Input
             label="Subject"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
             placeholder="Email subject line"
           />
-          <Textarea
+          <RichTextEditor
+            key={editorKey}
             label="Body"
-            value={bodyText}
-            onChange={(event) => setBodyText(event.target.value)}
-            className="min-h-55"
+            valueHtml={bodyHtml}
+            valueText={bodyText}
+            onChange={({ html, text }) => {
+              setBodyHtml(html);
+              setBodyText(text);
+            }}
             placeholder="Email body will appear here after generation or template load"
           />
           <Input
@@ -343,7 +393,7 @@ export default function ComposePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="page-title">Compose</h1>
+        <h1 className="page-title">Personalized</h1>
         <p className="page-subtitle">
           Load a template, generate with AI, then send now or schedule for later.
         </p>
@@ -354,7 +404,7 @@ export default function ComposePage() {
           <Card>
             <div className="flex items-center gap-2 text-sm text-(--muted-text)">
               <FileText className="h-4 w-4" />
-              Loading compose...
+              Loading personalized email...
             </div>
           </Card>
         }

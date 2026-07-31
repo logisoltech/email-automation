@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
-import { getActiveProvider } from "@/lib/ai";
-import { deliverEmail } from "@/lib/email/send";
-import { formatSmtpError } from "@/lib/email/nodemailer";
-import { wrapEmailHtml } from "@/lib/email/templates";
-import { getWorkspaceSettings } from "@/lib/workspaces";
+import {
+  CAMPAIGN_MAX_LEADS,
+  ensureDefaultLeadCategories,
+  resolveLeadEmailType,
+} from "@/lib/leads/categories";
 
-const campaignSchema = z.object({
+const createFromLeadsSchema = z.object({
   name: z.string().min(1, "Campaign name is required."),
-  subject: z.string().min(1, "Subject is required."),
-  bodyText: z.string().min(1, "Email body is required."),
-  bodyHtml: z.string().optional(),
-  recipients: z.array(z.string().email()).min(1, "Add at least one recipient."),
-  aiPrompt: z.string().optional(),
-  scheduledAt: z.string().optional(),
-  sendNow: z.boolean().optional(),
+  categoryId: z.string().uuid("Pick a subcategory."),
+  leadIds: z
+    .array(z.string().uuid())
+    .min(1, "Select at least one lead.")
+    .max(CAMPAIGN_MAX_LEADS, `Select at most ${CAMPAIGN_MAX_LEADS} leads.`),
 });
 
 export async function GET(request) {
@@ -31,7 +29,7 @@ export async function GET(request) {
   const { data, error, count } = await session.supabase
     .from("campaigns")
     .select(
-      "id, name, subject, recipients, status, scheduled_at, sent_at, created_at, error_message",
+      "id, name, subject, recipients, status, scheduled_at, sent_at, created_at, error_message, category_id, lead_type",
       { count: "exact" }
     )
     .eq("workspace_id", session.workspace.id)
@@ -42,9 +40,24 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const campaigns = data ?? [];
+  const withCounts = await Promise.all(
+    campaigns.map(async (campaign) => {
+      const { count: leadCount } = await session.supabase
+        .from("campaign_leads")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", campaign.id);
+
+      return {
+        ...campaign,
+        recipientCount: leadCount ?? campaign.recipients?.length ?? 0,
+      };
+    })
+  );
+
   const total = count ?? 0;
   return NextResponse.json({
-    campaigns: data ?? [],
+    campaigns: withCounts,
     pagination: {
       page,
       pageSize,
@@ -54,12 +67,15 @@ export async function GET(request) {
   });
 }
 
+/**
+ * Create a lead-based campaign (personalized AI flow).
+ */
 export async function POST(request) {
   const { session, error: sessionError } = await requireWorkspaceSession();
   if (sessionError) return sessionError;
 
   const body = await request.json();
-  const parsed = campaignSchema.safeParse(body);
+  const parsed = createFromLeadsSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -68,18 +84,50 @@ export async function POST(request) {
     );
   }
 
-  const { name, subject, bodyText, bodyHtml, recipients, aiPrompt, scheduledAt, sendNow } =
-    parsed.data;
   const workspaceId = session.workspace.id;
-  const html = wrapEmailHtml(bodyHtml || bodyText.replace(/\n/g, "<br>"));
+  await ensureDefaultLeadCategories(session.supabase, workspaceId);
 
-  if (scheduledAt && Number.isNaN(new Date(scheduledAt).getTime())) {
-    return NextResponse.json({ error: "Invalid schedule time." }, { status: 400 });
+  const { name, categoryId, leadIds } = parsed.data;
+  const uniqueLeadIds = [...new Set(leadIds)];
+
+  if (uniqueLeadIds.length > CAMPAIGN_MAX_LEADS) {
+    return NextResponse.json(
+      { error: `Select at most ${CAMPAIGN_MAX_LEADS} leads.` },
+      { status: 400 }
+    );
   }
 
-  if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
-    return NextResponse.json({ error: "Schedule time must be in the future." }, { status: 400 });
+  const { data: category } = await session.supabase
+    .from("lead_categories")
+    .select("id, name, slug")
+    .eq("id", categoryId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (!category) {
+    return NextResponse.json({ error: "Subcategory not found." }, { status: 404 });
   }
+
+  const { data: leads, error: leadsError } = await session.supabase
+    .from("leads")
+    .select("id, emails, name")
+    .eq("workspace_id", workspaceId)
+    .eq("category_id", categoryId)
+    .in("id", uniqueLeadIds);
+
+  if (leadsError) {
+    return NextResponse.json({ error: leadsError.message }, { status: 500 });
+  }
+
+  if (!leads?.length || leads.length !== uniqueLeadIds.length) {
+    return NextResponse.json(
+      { error: "Some selected leads were not found in that subcategory." },
+      { status: 400 }
+    );
+  }
+
+  const leadType = resolveLeadEmailType(category);
+  const recipients = leads.flatMap((lead) => lead.emails || []);
 
   const { data: campaign, error: insertError } = await session.supabase
     .from("campaigns")
@@ -87,14 +135,13 @@ export async function POST(request) {
       workspace_id: workspaceId,
       created_by: session.user.id,
       name,
-      subject,
-      body_html: html,
-      body_text: bodyText,
+      subject: "",
+      body_html: "",
+      body_text: "",
       recipients,
-      status: scheduledAt ? "scheduled" : "draft",
-      scheduled_at: scheduledAt || null,
-      ai_provider: getActiveProvider(),
-      ai_prompt: aiPrompt || null,
+      status: "draft",
+      category_id: categoryId,
+      lead_type: leadType,
     })
     .select("*")
     .single();
@@ -103,58 +150,22 @@ export async function POST(request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  if (!sendNow && scheduledAt) {
-    return NextResponse.json({ success: true, campaign, scheduled: true });
+  const rows = leads.map((lead) => ({
+    campaign_id: campaign.id,
+    lead_id: lead.id,
+    status: "pending",
+  }));
+
+  const { error: clError } = await session.supabase.from("campaign_leads").insert(rows);
+
+  if (clError) {
+    await session.supabase.from("campaigns").delete().eq("id", campaign.id);
+    return NextResponse.json({ error: clError.message }, { status: 500 });
   }
 
-  if (!sendNow) {
-    return NextResponse.json({ success: true, campaign, draft: true });
-  }
-
-  const settings = await getWorkspaceSettings(session.supabase, workspaceId);
-
-  try {
-    await deliverEmail({ subject, bodyText, bodyHtml: html, recipients, settings });
-
-    const { data: updated, error: updateError } = await session.supabase
-      .from("campaigns")
-      .update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      })
-      .eq("id", campaign.id)
-      .eq("workspace_id", workspaceId)
-      .select("*")
-      .single();
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    await session.supabase.from("emails").insert({
-      workspace_id: workspaceId,
-      sent_by: session.user.id,
-      campaign_id: campaign.id,
-      subject,
-      body_html: html,
-      body_text: bodyText,
-      recipients,
-      status: "sent",
-      ai_provider: getActiveProvider(),
-      ai_prompt: aiPrompt || null,
-      sent_at: new Date().toISOString(),
-    });
-
-    return NextResponse.json({ success: true, campaign: updated });
-  } catch (error) {
-    const message = formatSmtpError(error);
-
-    await session.supabase
-      .from("campaigns")
-      .update({ status: "failed", error_message: message })
-      .eq("id", campaign.id)
-      .eq("workspace_id", workspaceId);
-
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  return NextResponse.json({
+    success: true,
+    campaign,
+    leadCount: rows.length,
+  });
 }
