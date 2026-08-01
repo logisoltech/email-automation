@@ -1,0 +1,149 @@
+"filename", "language", "JSON", "Markdown", "MS SQL", "JavaScript", "JSON with Comments", "XML", "CSS", "comment", "blank", "total"
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\AGENTS.md", "Markdown", 0, 4, 0, 0, 0, 0, 0, 0, 2, 6
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\CLAUDE.md", "Markdown", 0, 1, 0, 0, 0, 0, 0, 0, 1, 2
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\README.md", "Markdown", 0, 44, 0, 0, 0, 0, 0, 0, 20, 64
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\invite\[token]\page.js", "JavaScript", 0, 0, 0, 128, 0, 0, 0, 0, 13, 141
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\layout.js", "JavaScript", 0, 0, 0, 3, 0, 0, 0, 0, 1, 4
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\login\login-client.js", "JavaScript", 0, 0, 0, 119, 0, 0, 0, 0, 14, 133
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\login\page.js", "JavaScript", 0, 0, 0, 9, 0, 0, 0, 0, 2, 11
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\signup\page.js", "JavaScript", 0, 0, 0, 9, 0, 0, 0, 0, 2, 11
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(auth)\signup\signup-client.js", "JavaScript", 0, 0, 0, 563, 0, 0, 0, 1, 36, 600
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\campaigns\campaigns-client.js", "JavaScript", 0, 0, 0, 732, 0, 0, 0, 1, 49, 782
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\campaigns\page.js", "JavaScript", 0, 0, 0, 15, 0, 0, 0, 0, 2, 17
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\compose\page.js", "JavaScript", 0, 0, 0, 363, 0, 0, 0, 2, 43, 408
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\history\page.js", "JavaScript", 0, 0, 0, 298, 0, 0, 0, 3, 32, 333
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\import\smm\page.js", "JavaScript", 0, 0, 0, 4, 0, 0, 0, 1, 2, 7
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\import\website\page.js", "JavaScript", 0, 0, 0, 4, 0, 0, 0, 1, 2, 7
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\instructions\page.js", "JavaScript", 0, 0, 0, 212, 0, 0, 0, 0, 29, 241
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\layout.js", "JavaScript", 0, 0, 0, 4, 0, 0, 0, 0, 2, 6
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\leads\page.js", "JavaScript", 0, 0, 0, 611, 0, 0, 0, 0, 36, 647
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\page.js", "JavaScript", 0, 0, 0, 218, 0, 0, 0, 0, 19, 237
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\settings\page.js", "JavaScript", 0, 0, 0, 525, 0, 0, 0, 0, 26, 551
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\(dashboard)\templates\page.js", "JavaScript", 0, 0, 0, 386, 0, 0, 0, 17, 28, 431
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\activation\route.js", "JavaScript", 0, 0, 0, 194, 0, 0, 0, 4, 25, 223
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\ai-instructions\[id]\route.js", "JavaScript", 0, 0, 0, 50, 0, 0, 0, 8, 14, 72
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\ai-instructions\route.js", "JavaScript", 0, 0, 0, 44, 0, 0, 0, 0, 12, 56
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\ai\generate\route.js", "JavaScript", 0, 0, 0, 35, 0, 0, 0, 0, 7, 42
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\analytics\stats\route.js", "JavaScript", 0, 0, 0, 26, 0, 0, 0, 0, 8, 34
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\auth\login\route.js", "JavaScript", 0, 0, 0, 91, 0, 0, 0, 0, 14, 105
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\auth\logout\route.js", "JavaScript", 0, 0, 0, 7, 0, 0, 0, 0, 2, 9
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\auth\session\route.js", "JavaScript", 0, 0, 0, 32, 0, 0, 0, 0, 6, 38
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\auth\signup\route.js", "JavaScript", 0, 0, 0, 119, 0, 0, 0, 0, 17, 136
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\campaigns\[id]\generate\route.js", "JavaScript", 0, 0, 0, 179, 0, 0, 0, 5, 35, 219
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\campaigns\[id]\leads\[leadId]\route.js", "JavaScript", 0, 0, 0, 70, 0, 0, 0, 6, 15, 91
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\campaigns\[id]\route.js", "JavaScript", 0, 0, 0, 57, 0, 0, 0, 4, 11, 72
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\campaigns\[id]\start\route.js", "JavaScript", 0, 0, 0, 56, 0, 0, 0, 5, 13, 74
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\campaigns\route.js", "JavaScript", 0, 0, 0, 142, 0, 0, 0, 3, 27, 172
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\emails\history\route.js", "JavaScript", 0, 0, 0, 56, 0, 0, 0, 4, 11, 71
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\emails\process-scheduled\route.js", "JavaScript", 0, 0, 0, 37, 0, 0, 0, 0, 8, 45
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\emails\schedule\route.js", "JavaScript", 0, 0, 0, 86, 0, 0, 0, 1, 12, 99
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\emails\send\route.js", "JavaScript", 0, 0, 0, 83, 0, 0, 0, 0, 12, 95
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\[id]\route.js", "JavaScript", 0, 0, 0, 164, 0, 0, 0, 14, 34, 212
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\batches\[id]\generate\route.js", "JavaScript", 0, 0, 0, 166, 0, 0, 0, 32, 39, 237
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\batches\[id]\route.js", "JavaScript", 0, 0, 0, 79, 0, 0, 0, 8, 15, 102
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\batches\[id]\start\route.js", "JavaScript", 0, 0, 0, 64, 0, 0, 0, 4, 14, 82
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\batches\route.js", "JavaScript", 0, 0, 0, 86, 0, 0, 0, 0, 17, 103
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\bulk\route.js", "JavaScript", 0, 0, 0, 40, 0, 0, 0, 3, 11, 54
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\categories\[id]\route.js", "JavaScript", 0, 0, 0, 66, 0, 0, 0, 8, 17, 91
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\categories\route.js", "JavaScript", 0, 0, 0, 81, 0, 0, 0, 0, 19, 100
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\import\route.js", "JavaScript", 0, 0, 0, 92, 0, 0, 0, 3, 17, 112
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\parse\route.js", "JavaScript", 0, 0, 0, 33, 0, 0, 0, 0, 7, 40
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\leads\route.js", "JavaScript", 0, 0, 0, 138, 0, 0, 0, 7, 24, 169
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\settings\process-scheduled\route.js", "JavaScript", 0, 0, 0, 30, 0, 0, 0, 0, 4, 34
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\settings\route.js", "JavaScript", 0, 0, 0, 18, 0, 0, 0, 0, 4, 22
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\settings\test-ai\route.js", "JavaScript", 0, 0, 0, 29, 0, 0, 0, 0, 4, 33
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\settings\test-smtp\route.js", "JavaScript", 0, 0, 0, 27, 0, 0, 0, 0, 5, 32
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\templates\[id]\route.js", "JavaScript", 0, 0, 0, 71, 0, 0, 0, 11, 16, 98
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\templates\route.js", "JavaScript", 0, 0, 0, 74, 0, 0, 0, 3, 12, 89
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\templates\upload\route.js", "JavaScript", 0, 0, 0, 63, 0, 0, 0, 0, 12, 75
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\workspaces\invitations\route.js", "JavaScript", 0, 0, 0, 154, 0, 0, 0, 2, 25, 181
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\workspaces\route.js", "JavaScript", 0, 0, 0, 75, 0, 0, 0, 3, 17, 95
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\workspaces\settings\route.js", "JavaScript", 0, 0, 0, 128, 0, 0, 0, 0, 21, 149
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\api\workspaces\settings\test-smtp\route.js", "JavaScript", 0, 0, 0, 47, 0, 0, 0, 0, 9, 56
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\globals.css", "CSS", 0, 0, 0, 0, 0, 0, 273, 21, 41, 335
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\layout.js", "JavaScript", 0, 0, 0, 30, 0, 0, 0, 0, 4, 34
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\app\onboarding\page.js", "JavaScript", 0, 0, 0, 4, 0, 0, 0, 1, 2, 7
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\auth\auth-brand-panel.js", "JavaScript", 0, 0, 0, 26, 0, 0, 0, 8, 4, 38
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\auth\verify-email-toast.js", "JavaScript", 0, 0, 0, 53, 0, 0, 0, 9, 5, 67
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\campaigns\campaign-detail-modal.js", "JavaScript", 0, 0, 0, 164, 0, 0, 0, 8, 14, 186
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\compose\recipient-field.js", "JavaScript", 0, 0, 0, 368, 0, 0, 0, 24, 30, 422
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\dashboard\activation-checklist.js", "JavaScript", 0, 0, 0, 92, 0, 0, 0, 12, 6, 110
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\layout\dashboard-shell.js", "JavaScript", 0, 0, 0, 87, 0, 0, 0, 3, 13, 103
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\layout\header.js", "JavaScript", 0, 0, 0, 39, 0, 0, 0, 7, 3, 49
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\layout\sidebar.js", "JavaScript", 0, 0, 0, 128, 0, 0, 0, 10, 9, 147
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\leads\create-lead-modal.js", "JavaScript", 0, 0, 0, 229, 0, 0, 0, 14, 16, 259
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\leads\import-workflow.js", "JavaScript", 0, 0, 0, 566, 0, 0, 0, 9, 55, 630
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\leads\lead-detail-modal.js", "JavaScript", 0, 0, 0, 210, 0, 0, 0, 12, 16, 238
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\leads\send-progress-panel.js", "JavaScript", 0, 0, 0, 64, 0, 0, 0, 13, 7, 84
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\providers\query-provider.js", "JavaScript", 0, 0, 0, 19, 0, 0, 0, 3, 4, 26
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\settings\appearance-card.js", "JavaScript", 0, 0, 0, 157, 0, 0, 0, 4, 18, 179
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\theme\theme-script.js", "JavaScript", 0, 0, 0, 19, 0, 0, 0, 5, 4, 28
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\alert.js", "JavaScript", 0, 0, 0, 36, 0, 0, 0, 3, 9, 48
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\button.js", "JavaScript", 0, 0, 0, 39, 0, 0, 0, 7, 4, 50
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\card.js", "JavaScript", 0, 0, 0, 18, 0, 0, 0, 6, 2, 26
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\input.js", "JavaScript", 0, 0, 0, 27, 0, 0, 0, 7, 3, 37
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\notifications.js", "JavaScript", 0, 0, 0, 17, 0, 0, 0, 0, 3, 20
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\pagination.js", "JavaScript", 0, 0, 0, 52, 0, 0, 0, 11, 4, 67
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\rich-text-editor.js", "JavaScript", 0, 0, 0, 257, 0, 0, 0, 30, 19, 306
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\components\ui\textarea.js", "JavaScript", 0, 0, 0, 27, 0, 0, 0, 7, 3, 37
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\jsconfig.json", "JSON with Comments", 0, 0, 0, 0, 7, 0, 0, 0, 1, 8
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\index.js", "JavaScript", 0, 0, 0, 29, 0, 0, 0, 9, 8, 46
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\instructions.js", "JavaScript", 0, 0, 0, 28, 0, 0, 0, 13, 10, 51
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\lead-email.js", "JavaScript", 0, 0, 0, 190, 0, 0, 0, 37, 32, 259
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\prompt.js", "JavaScript", 0, 0, 0, 97, 0, 0, 0, 20, 23, 140
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\providers\gemini.js", "JavaScript", 0, 0, 0, 39, 0, 0, 0, 4, 11, 54
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\providers\groq.js", "JavaScript", 0, 0, 0, 40, 0, 0, 0, 4, 9, 53
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\ai\providers\openai.js", "JavaScript", 0, 0, 0, 39, 0, 0, 0, 4, 11, 54
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\auth\allowlist.js", "JavaScript", 0, 0, 0, 19, 0, 0, 0, 4, 6, 29
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\auth\cookies.js", "JavaScript", 0, 0, 0, 40, 0, 0, 0, 11, 7, 58
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\auth\get-session.js", "JavaScript", 0, 0, 0, 76, 0, 0, 0, 13, 15, 104
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\crypto\secrets.js", "JavaScript", 0, 0, 0, 48, 0, 0, 0, 15, 15, 78
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\format-body.js", "JavaScript", 0, 0, 0, 109, 0, 0, 0, 32, 24, 165
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\nodemailer.js", "JavaScript", 0, 0, 0, 171, 0, 0, 0, 36, 27, 234
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\process-results.js", "JavaScript", 0, 0, 0, 21, 0, 0, 0, 3, 7, 31
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\scheduler.js", "JavaScript", 0, 0, 0, 509, 0, 0, 0, 79, 110, 698
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\send.js", "JavaScript", 0, 0, 0, 70, 0, 0, 0, 31, 95, 196
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\signature.js", "JavaScript", 0, 0, 0, 103, 0, 0, 0, 46, 22, 171
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\email\templates.js", "JavaScript", 0, 0, 0, 12, 0, 0, 0, 3, 1, 16
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\leads\budget-tier.js", "JavaScript", 0, 0, 0, 77, 0, 0, 0, 18, 19, 114
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\leads\categories.js", "JavaScript", 0, 0, 0, 35, 0, 0, 0, 13, 6, 54
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\leads\parse-emails.js", "JavaScript", 0, 0, 0, 7, 0, 0, 0, 4, 2, 13
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\leads\parse.js", "JavaScript", 0, 0, 0, 128, 0, 0, 0, 28, 32, 188
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\leads\send-progress.js", "JavaScript", 0, 0, 0, 36, 0, 0, 0, 16, 5, 57
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\notify.js", "JavaScript", 0, 0, 0, 123, 0, 0, 0, 23, 12, 158
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\query.js", "JavaScript", 0, 0, 0, 26, 0, 0, 0, 4, 2, 32
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\settings\config.js", "JavaScript", 0, 0, 0, 58, 0, 0, 0, 6, 4, 68
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\supabase\admin.js", "JavaScript", 0, 0, 0, 14, 0, 0, 0, 4, 4, 22
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\supabase\client.js", "JavaScript", 0, 0, 0, 14, 0, 0, 0, 4, 4, 22
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\supabase\server.js", "JavaScript", 0, 0, 0, 32, 0, 0, 0, 9, 7, 48
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\templates\index.js", "JavaScript", 0, 0, 0, 52, 0, 0, 0, 17, 14, 83
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\templates\starters.js", "JavaScript", 0, 0, 0, 49, 0, 0, 0, 11, 18, 78
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\theme.js", "JavaScript", 0, 0, 0, 161, 0, 0, 0, 15, 15, 191
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\utils\cn.js", "JavaScript", 0, 0, 0, 3, 0, 0, 0, 4, 1, 8
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\workspaces\index.js", "JavaScript", 0, 0, 0, 136, 0, 0, 0, 37, 26, 199
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\lib\workspaces\invitations.js", "JavaScript", 0, 0, 0, 73, 0, 0, 0, 12, 17, 102
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\next.config.mjs", "JavaScript", 0, 0, 0, 3, 0, 0, 0, 2, 2, 7
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\package-lock.json", "JSON", 2590, 0, 0, 0, 0, 0, 0, 0, 1, 2591
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\package.json", "JSON", 34, 0, 0, 0, 0, 0, 0, 0, 1, 35
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\postcss.config.mjs", "JavaScript", 0, 0, 0, 6, 0, 0, 0, 0, 2, 8
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\proxy.js", "JavaScript", 0, 0, 0, 64, 0, 0, 0, 3, 15, 82
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\public\file.svg", "XML", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\public\globe.svg", "XML", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\public\next.svg", "XML", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\public\vercel.svg", "XML", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\public\window.svg", "XML", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\001_initial_schema.sql", "MS SQL", 0, 0, 35, 0, 0, 0, 0, 4, 9, 48
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\002_phase3_campaigns.sql", "MS SQL", 0, 0, 31, 0, 0, 0, 0, 1, 11, 43
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\003_email_templates.sql", "MS SQL", 0, 0, 20, 0, 0, 0, 0, 0, 7, 27
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\004_lead_imports.sql", "MS SQL", 0, 0, 57, 0, 0, 0, 0, 1, 8, 66
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\005_sends_per_hour_100.sql", "MS SQL", 0, 0, 2, 0, 0, 0, 0, 2, 2, 6
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\006_ai_instructions.sql", "MS SQL", 0, 0, 17, 0, 0, 0, 0, 0, 7, 24
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\007_lead_sending_status.sql", "MS SQL", 0, 0, 2, 0, 0, 0, 0, 1, 2, 5
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\008_workspaces_saas.sql", "MS SQL", 0, 0, 301, 0, 0, 0, 0, 20, 51, 372
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\009_require_smtp_onboarding.sql", "MS SQL", 0, 0, 6, 0, 0, 0, 0, 2, 1, 9
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\010_activation_checklist.sql", "MS SQL", 0, 0, 2, 0, 0, 0, 0, 1, 1, 4
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\011_leads_categories_campaigns.sql", "MS SQL", 0, 0, 161, 0, 0, 0, 0, 5, 26, 192
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\012_template_branding.sql", "MS SQL", 0, 0, 52, 0, 0, 0, 0, 4, 7, 63
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\supabase\migrations\013_lead_manual_fields.sql", "MS SQL", 0, 0, 7, 0, 0, 0, 0, 1, 2, 10
+"c:\Users\Haseeb Specter\Documents\GitHub\email-automation\vercel.json", "JSON", 8, 0, 0, 0, 0, 0, 0, 0, 1, 9
+"Total", "-", 2632, 49, 693, 12757, 7, 5, 273, 1034, 2029, 19479

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardPaste,
@@ -11,6 +10,7 @@ import {
   FolderPlus,
   CheckSquare,
   Square,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Pagination } from "@/components/ui/pagination";
 import { Alert } from "@/components/ui/alert";
+import { CreateLeadModal } from "@/components/leads/create-lead-modal";
+import { LeadDetailModal } from "@/components/leads/lead-detail-modal";
 import { getBudgetTier, getBudgetTierLabel } from "@/lib/leads/budget-tier";
 import { notify } from "@/lib/notify";
 import { fetchJson, queryKeys } from "@/lib/query";
@@ -33,6 +35,10 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [showCreateLead, setShowCreateLead] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [detailLeadId, setDetailLeadId] = useState(null);
+  const [savingLead, setSavingLead] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [assignCategoryId, setAssignCategoryId] = useState("");
 
@@ -219,6 +225,69 @@ export default function LeadsPage() {
     }
   }
 
+  async function handleCreateLead(payload) {
+    setSavingLead(true);
+    setError("");
+    try {
+      await fetchJson("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      notify.success("Lead created", payload.name);
+      setShowCreateLead(false);
+      setEditingLead(null);
+      if (payload.categoryId) {
+        setActiveCategoryId(payload.categoryId);
+        setPage(1);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.categories() }),
+        queryClient.invalidateQueries({ queryKey: ["leads", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["leads", "recipients"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.stats() }),
+      ]);
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function handleUpdateLead(payload) {
+    if (!editingLead?.id) return;
+    setSavingLead(true);
+    setError("");
+    try {
+      await fetchJson(`/api/leads/${editingLead.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      notify.success("Lead updated", payload.name);
+      setShowCreateLead(false);
+      setEditingLead(null);
+      setDetailLeadId(null);
+      if (payload.categoryId) {
+        setActiveCategoryId(payload.categoryId);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.categories() }),
+        queryClient.invalidateQueries({ queryKey: ["leads", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["leads", "recipients"] }),
+      ]);
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function invalidateAfterLeadChange() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories() }),
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] }),
+      queryClient.invalidateQueries({ queryKey: ["leads", "recipients"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats() }),
+    ]);
+  }
+
   const displayError =
     error || categoriesQuery.error?.message || leadsQuery.error?.message || "";
 
@@ -236,16 +305,48 @@ export default function LeadsPage() {
             <ClipboardPaste className="h-4 w-4" />
             {showImport ? "Hide import" : "Import leads"}
           </Button>
-          <Link href="/campaigns?new=1">
-            <Button>
-              <Plus className="h-4 w-4" />
-              Create a Campaign
-            </Button>
-          </Link>
+          <Button
+            onClick={() => {
+              setEditingLead(null);
+              setShowCreateLead(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Create Leads
+          </Button>
         </div>
       </div>
 
       {displayError ? <Alert variant="error">{displayError}</Alert> : null}
+
+      <CreateLeadModal
+        open={showCreateLead}
+        onClose={() => {
+          setShowCreateLead(false);
+          setEditingLead(null);
+        }}
+        categories={categories}
+        defaultCategoryId={activeCategoryId}
+        initialLead={editingLead}
+        saving={savingLead}
+        onSave={editingLead ? handleUpdateLead : handleCreateLead}
+      />
+
+      <LeadDetailModal
+        open={Boolean(detailLeadId)}
+        leadId={detailLeadId}
+        onClose={() => setDetailLeadId(null)}
+        onEdit={(lead) => {
+          setDetailLeadId(null);
+          setEditingLead(lead);
+          setShowCreateLead(true);
+        }}
+        onDeleted={async () => {
+          notify.success("Lead deleted", "Removed from your workspace.");
+          setDetailLeadId(null);
+          await invalidateAfterLeadChange();
+        }}
+      />
 
       {showImport ? (
         <Card title="Import from Google Sheets" description="Paste tab-separated rows. No emails are generated here.">
@@ -490,15 +591,16 @@ export default function LeadsPage() {
                     "No project details";
 
                   return (
-                    <label
+                    <div
                       key={lead.id}
-                      className="flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-(--ink)/10 px-3 py-3 transition hover:border-(--ink)/25"
+                      className="flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border border-(--ink)/10 px-3 py-3 transition hover:border-(--ink)/25"
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleLead(lead.id)}
                         className="mt-1 shrink-0 accent-(--ink)"
+                        aria-label={`Select ${lead.name}`}
                       />
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -516,7 +618,16 @@ export default function LeadsPage() {
                           {detailLine}
                         </p>
                       </div>
-                    </label>
+                      <button
+                        type="button"
+                        onClick={() => setDetailLeadId(lead.id)}
+                        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-(--muted-text) transition hover:bg-(--ink)/8 hover:text-(--heading)"
+                        title="View lead details"
+                        aria-label={`View ${lead.name}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </div>
                   );
                 })}
 

@@ -11,14 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import {
+  RecipientField,
+  parseRecipientEmails,
+} from "@/components/compose/recipient-field";
 import { fetchJson, queryKeys } from "@/lib/query";
-
-function parseRecipients(value) {
-  return value
-    .split(/[,;\n]+/)
-    .map((email) => email.trim())
-    .filter(Boolean);
-}
 
 function defaultScheduleValue() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -125,7 +122,7 @@ function ComposeForm() {
     setError("");
     setSuccess("");
 
-    const recipientList = parseRecipients(recipients);
+    const recipientList = parseRecipientEmails(recipients);
 
     if (!recipientList.length) {
       setError("Add at least one recipient email.");
@@ -169,7 +166,7 @@ function ComposeForm() {
     setError("");
     setSuccess("");
 
-    const recipientList = parseRecipients(recipients);
+    const recipientList = parseRecipientEmails(recipients);
 
     if (!recipientList.length) {
       setError("Add at least one recipient email.");
@@ -343,13 +340,7 @@ function ComposeForm() {
             }}
             placeholder="Email body will appear here after generation or template load"
           />
-          <Input
-            label="Recipients"
-            value={recipients}
-            onChange={(event) => setRecipients(event.target.value)}
-            placeholder="client@example.com, partner@example.com"
-          />
-          <p className="text-xs text-(--muted-text)">Separate multiple emails with commas.</p>
+          <RecipientField value={recipients} onChange={setRecipients} />
 
           <Input
             label="Schedule for later"

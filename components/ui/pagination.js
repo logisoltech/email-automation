@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
  *   pageSize?: number;
  *   onPageChange: (page: number) => void;
  *   disabled?: boolean;
+ *   className?: string;
  * }} props
  */
 export function Pagination({
@@ -18,6 +19,7 @@ export function Pagination({
   pageSize = 10,
   onPageChange,
   disabled = false,
+  className,
 }) {
   if (totalPages <= 1) return null;
 
@@ -25,11 +27,16 @@ export function Pagination({
   const end = total ? Math.min(page * pageSize, total) : page * pageSize;
 
   return (
-    <div className="flex flex-col gap-3 border-t border-(--ink)/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={
+        className ||
+        "flex flex-col gap-3 border-t border-(--ink)/10 pt-4 sm:flex-row sm:items-center sm:justify-between"
+      }
+    >
       <p className="text-xs font-light text-(--muted-text)">
         {total ? `Showing ${start}–${end} of ${total}` : `Page ${page} of ${totalPages}`}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"

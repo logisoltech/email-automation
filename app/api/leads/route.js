@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
+import { ensureDefaultLeadCategories } from "@/lib/leads/categories";
 
 /**
  * List / search workspace leads.
@@ -33,7 +35,6 @@ export async function GET(request) {
   }
 
   if (date) {
-    // lead_date is free text (e.g. 27-June-2026) — match contains for ISO or sheet formats
     query = query.ilike("lead_date", `%${date}%`);
   }
 
@@ -55,14 +56,12 @@ export async function GET(request) {
 
   let leads = data ?? [];
 
-  // Post-filter for email matches (text[] isn't in the or() filter above)
   if (q) {
     const needle = q.toLowerCase();
     const emailHits = leads.filter((lead) =>
       (lead.emails || []).some((email) => String(email).toLowerCase().includes(needle))
     );
     if (needle.includes("@") || emailHits.length) {
-      // Merge: keep rows that matched text filters OR email
       const byId = new Map(leads.map((lead) => [lead.id, lead]));
       for (const hit of emailHits) byId.set(hit.id, hit);
       leads = [...byId.values()];
@@ -80,4 +79,96 @@ export async function GET(request) {
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     },
   });
+}
+
+const createLeadSchema = z.object({
+  categoryId: z.string().uuid("Pick a subcategory."),
+  name: z.string().min(1, "Name is required."),
+  email: z.string().email("Enter a valid email."),
+  phone: z.string().optional().nullable(),
+  budget: z.string().optional().nullable(),
+  leadDate: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  websiteUrl: z.string().optional().nullable(),
+  socialMediaLinks: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+/**
+ * Create a single lead in a subcategory (manual entry).
+ */
+export async function POST(request) {
+  const { session, error: sessionError } = await requireWorkspaceSession();
+  if (sessionError) return sessionError;
+
+  const body = await request.json();
+  const parsed = createLeadSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
+      { status: 400 }
+    );
+  }
+
+  const workspaceId = session.workspace.id;
+  await ensureDefaultLeadCategories(session.supabase, workspaceId);
+
+  const {
+    categoryId,
+    name,
+    email,
+    phone,
+    budget,
+    leadDate,
+    category: serviceCategory,
+    country,
+    websiteUrl,
+    socialMediaLinks,
+    description,
+    notes,
+  } = parsed.data;
+
+  const { data: category, error: categoryError } = await session.supabase
+    .from("lead_categories")
+    .select("id, name")
+    .eq("id", categoryId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (categoryError || !category) {
+    return NextResponse.json({ error: "Subcategory not found." }, { status: 404 });
+  }
+
+  const { data: lead, error } = await session.supabase
+    .from("leads")
+    .insert({
+      workspace_id: workspaceId,
+      batch_id: null,
+      category_id: categoryId,
+      name: name.trim(),
+      emails: [email.trim().toLowerCase()],
+      phone: phone?.trim() || null,
+      budget: budget?.trim() || null,
+      lead_date: leadDate?.trim() || null,
+      category: serviceCategory?.trim() || null,
+      country: country?.trim() || null,
+      website_url: websiteUrl?.trim() || null,
+      social_media_links: socialMediaLinks?.trim() || null,
+      project_description: description?.trim() || null,
+      notes: notes?.trim() || null,
+      status: "pending",
+    })
+    .select(
+      "id, name, emails, phone, country, category, budget, lead_date, category_id, website_url, social_media_links, project_description, notes, created_at"
+    )
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ lead });
 }

@@ -1,0 +1,28 @@
+# Diff Summary
+
+Date : 2026-07-31 17:30:02
+
+Directory c:\\Users\\Haseeb Specter\\Documents\\GitHub\\email-automation
+
+Total : 3 files,  30 codes, 0 comments, 0 blanks, all 30 lines
+
+[Summary](results.md) / [Details](details.md) / Diff Summary / [Diff Details](diff-details.md)
+
+## Languages
+| language | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| JavaScript | 3 | 30 | 0 | 0 | 30 |
+
+## Directories
+| path | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| . | 3 | 30 | 0 | 0 | 30 |
+| app | 2 | 10 | 0 | 0 | 10 |
+| app\\api | 2 | 10 | 0 | 0 | 10 |
+| app\\api\\leads | 2 | 10 | 0 | 0 | 10 |
+| app\\api\\leads (Files) | 1 | 6 | 0 | 0 | 6 |
+| app\\api\\leads\\[id] | 1 | 4 | 0 | 0 | 4 |
+| components | 1 | 20 | 0 | 0 | 20 |
+| components\\leads | 1 | 20 | 0 | 0 | 20 |
+
+[Summary](results.md) / [Details](details.md) / Diff Summary / [Diff Details](diff-details.md)
