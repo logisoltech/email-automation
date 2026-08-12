@@ -121,6 +121,8 @@ export default function CampaignsPageClient() {
 
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState("pick"); // pick | generating | review | sending
+  /** @type {"category" | "latest"} */
+  const [pickMode, setPickMode] = useState("category");
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [leadQuery, setLeadQuery] = useState("");
@@ -151,27 +153,36 @@ export default function CampaignsPageClient() {
 
   const pickerQuery = useQuery({
     queryKey: queryKeys.leads({
-      categoryId,
+      categoryId: pickMode === "category" ? categoryId : "",
       page: pickerPage,
       q: pickerQ,
-      date: dateFilter,
+      date: pickMode === "category" ? dateFilter : "",
       pageSize: PICKER_PAGE_SIZE,
+      importRun: pickMode === "latest" ? "latest" : "",
     }),
     queryFn: () => {
       const params = new URLSearchParams({
-        categoryId,
         page: String(pickerPage),
         pageSize: String(PICKER_PAGE_SIZE),
       });
+      if (pickMode === "latest") {
+        params.set("importRun", "latest");
+      } else {
+        params.set("categoryId", categoryId);
+        if (dateFilter) params.set("date", dateFilter);
+      }
       if (pickerQ) params.set("q", pickerQ);
-      if (dateFilter) params.set("date", dateFilter);
       return fetchJson(`/api/leads?${params}`);
     },
-    enabled: showForm && step === "pick" && Boolean(categoryId),
+    enabled:
+      showForm &&
+      step === "pick" &&
+      (pickMode === "latest" || Boolean(categoryId)),
     staleTime: 60_000,
   });
 
   const pickerLeads = pickerQuery.data?.leads ?? [];
+  const latestImportRun = pickerQuery.data?.importRun ?? null;
   const pickerPagination = pickerQuery.data?.pagination ?? {
     page: pickerPage,
     pageSize: PICKER_PAGE_SIZE,
@@ -245,11 +256,15 @@ export default function CampaignsPageClient() {
     setPickerPage(1);
     try {
       const params = new URLSearchParams({
-        categoryId,
         page: "1",
         pageSize: String(CAMPAIGN_MAX_LEADS),
       });
-      if (date) params.set("date", date);
+      if (pickMode === "latest") {
+        params.set("importRun", "latest");
+      } else {
+        params.set("categoryId", categoryId);
+        if (date) params.set("date", date);
+      }
       if (q) params.set("q", q);
 
       const data = await fetchJson(`/api/leads?${params}`);
@@ -259,6 +274,34 @@ export default function CampaignsPageClient() {
     } catch (err) {
       setError(err.message);
       return [];
+    }
+  }
+
+  async function selectLatestImportAll() {
+    setError("");
+    setPickerPage(1);
+    try {
+      const params = new URLSearchParams({
+        importRun: "latest",
+        page: "1",
+        pageSize: String(CAMPAIGN_MAX_LEADS),
+      });
+      if (pickerQ) params.set("q", pickerQ);
+      const data = await fetchJson(`/api/leads?${params}`);
+      const leads = data.leads ?? [];
+      if (!leads.length) {
+        notify.info("No latest import", "Import leads first, then come back to this tab.");
+        setSelectedIds(new Set());
+        return;
+      }
+      setSelectedIds(new Set(leads.slice(0, CAMPAIGN_MAX_LEADS).map((l) => l.id)));
+      if (data.importRun?.categoryId) {
+        setCategoryId(data.importRun.categoryId);
+      } else if (leads[0]?.category_id) {
+        setCategoryId(leads[0].category_id);
+      }
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -316,8 +359,24 @@ export default function CampaignsPageClient() {
       setError("Campaign name is required.");
       return;
     }
-    if (!categoryId || selectedIds.size === 0) {
-      setError("Pick a subcategory and at least one lead.");
+    if (selectedIds.size === 0) {
+      setError("Select at least one lead.");
+      return;
+    }
+
+    const resolvedCategoryId =
+      pickMode === "latest"
+        ? latestImportRun?.categoryId ||
+          pickerLeads.find((l) => selectedIds.has(l.id))?.category_id ||
+          categoryId
+        : categoryId;
+
+    if (!resolvedCategoryId) {
+      setError(
+        pickMode === "latest"
+          ? "Latest import has no subcategory. Re-import into a subcategory, or pick By subcategory."
+          : "Pick a subcategory and at least one lead."
+      );
       return;
     }
     if (selectedIds.size > CAMPAIGN_MAX_LEADS) {
@@ -332,7 +391,7 @@ export default function CampaignsPageClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          categoryId,
+          categoryId: resolvedCategoryId,
           leadIds: [...selectedIds],
         }),
       });
@@ -416,6 +475,7 @@ export default function CampaignsPageClient() {
   function resetForm() {
     setShowForm(false);
     setStep("pick");
+    setPickMode("category");
     setName("");
     setSelectedIds(new Set());
     setCampaignId(null);
@@ -475,24 +535,84 @@ export default function CampaignsPageClient() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="June website outreach"
               />
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium text-(--heading)">Subcategory</span>
-                <select
-                  className="h-11 w-full rounded-xl border border-(--ink)/12 bg-(--surface) px-3.5 text-sm outline-none focus:border-(--ink)"
-                  value={categoryId}
-                  onChange={(e) => {
-                    setCategoryId(e.target.value);
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={pickMode === "category" ? "primary" : "secondary"}
+                  onClick={() => {
+                    setPickMode("category");
                     setSelectedIds(new Set());
                     setPickerPage(1);
+                    setDateFilter("");
                   }}
                 >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.leadCount ?? 0})
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  By subcategory
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={pickMode === "latest" ? "primary" : "secondary"}
+                  onClick={() => {
+                    setPickMode("latest");
+                    setSelectedIds(new Set());
+                    setPickerPage(1);
+                    setDateFilter("");
+                    setPickerQ("");
+                    setLeadQuery("");
+                  }}
+                >
+                  Latest import
+                </Button>
+              </div>
+
+              {pickMode === "category" ? (
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-(--heading)">Subcategory</span>
+                  <select
+                    className="h-11 w-full rounded-xl border border-(--ink)/12 bg-(--surface) px-3.5 text-sm outline-none focus:border-(--ink)"
+                    value={categoryId}
+                    onChange={(e) => {
+                      setCategoryId(e.target.value);
+                      setSelectedIds(new Set());
+                      setPickerPage(1);
+                    }}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.leadCount ?? 0})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="rounded-xl border border-(--ink)/10 bg-(--surface-lo)/50 px-3.5 py-3 text-sm text-(--body)">
+                  {pickerQuery.isLoading ? (
+                    <p className="text-(--muted-text)">Loading latest import…</p>
+                  ) : latestImportRun ? (
+                    <p>
+                      Showing{" "}
+                      <span className="font-medium text-(--heading)">
+                        {pickerPagination.total || latestImportRun.leadCount}
+                      </span>{" "}
+                      lead{(pickerPagination.total || latestImportRun.leadCount) === 1 ? "" : "s"}{" "}
+                      from the most recent import
+                      <span className="text-(--muted-text)">
+                        {" "}
+                        · {String(latestImportRun.source).replace(/^./, (c) => c.toUpperCase())}
+                        {" · "}
+                        {new Date(latestImportRun.createdAt).toLocaleString()}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-(--muted-text)">
+                      No imports yet. Import leads from Leads (paste, HubSpot, or Zoho), then
+                      return here.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1">
@@ -517,22 +637,38 @@ export default function CampaignsPageClient() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" variant="secondary" onClick={selectTodaysLeads}>
-                  <Calendar className="h-3.5 w-3.5" />
-                  Select today&apos;s leads in {categoryName}
-                </Button>
-                <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-(--ink)/12 px-3 text-xs text-(--body)">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <input
-                    type="date"
-                    className="bg-transparent outline-none"
-                    value={dateFilter.includes("-") && dateFilter.match(/^\d{4}-/) ? dateFilter : ""}
-                    onChange={(e) => applyCalendarDate(e.target.value)}
-                  />
-                </label>
-                <Button type="button" size="sm" variant="ghost" onClick={selectAllVisible}>
-                  Select all shown
-                </Button>
+                {pickMode === "category" ? (
+                  <>
+                    <Button type="button" size="sm" variant="secondary" onClick={selectTodaysLeads}>
+                      <Calendar className="h-3.5 w-3.5" />
+                      Select today&apos;s leads in {categoryName}
+                    </Button>
+                    <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-(--ink)/12 px-3 text-xs text-(--body)">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <input
+                        type="date"
+                        className="bg-transparent outline-none"
+                        value={
+                          dateFilter.includes("-") && dateFilter.match(/^\d{4}-/) ? dateFilter : ""
+                        }
+                        onChange={(e) => applyCalendarDate(e.target.value)}
+                      />
+                    </label>
+                    <Button type="button" size="sm" variant="ghost" onClick={selectAllVisible}>
+                      Select all shown
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={selectLatestImportAll}
+                    disabled={!latestImportRun}
+                  >
+                    Select all from latest import
+                  </Button>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -548,14 +684,16 @@ export default function CampaignsPageClient() {
                 {pickerPagination.total
                   ? ` · ${pickerPagination.total} lead${pickerPagination.total === 1 ? "" : "s"} in view`
                   : ""}
-                {dateFilter ? ` · filter: ${dateFilter}` : ""}
+                {pickMode === "category" && dateFilter ? ` · filter: ${dateFilter}` : ""}
               </p>
 
               <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-(--ink)/10 p-2">
                 {pickerQuery.isLoading ? (
                   <p className="p-3 text-sm text-(--muted-text)">Loading…</p>
                 ) : pickerLeads.length === 0 ? (
-                  <p className="p-3 text-sm text-(--muted-text)">No leads match.</p>
+                  <p className="p-3 text-sm text-(--muted-text)">
+                    {pickMode === "latest" ? "No leads in the latest import." : "No leads match."}
+                  </p>
                 ) : (
                   pickerLeads.map((lead) => {
                     const checked = selectedIds.has(lead.id);

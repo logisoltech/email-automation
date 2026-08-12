@@ -6,6 +6,7 @@ import {
   buildBrandedEmailHtml,
   buildBrandedEmailText,
   signatureFromSettings,
+  resolveSignatureImageUrl,
 } from "@/lib/email/signature";
 import { getWorkspaceSettings } from "@/lib/workspaces";
 
@@ -58,14 +59,15 @@ export async function POST(request) {
 
   const settings = await getWorkspaceSettings(session.supabase, session.workspace.id);
   const signature = signatureFromSettings(settings);
+  const resolvedSigImage = resolveSignatureImageUrl(settings, signatureImageUrl);
   const brandedInner = buildBrandedEmailHtml({
     bodyText,
     bodyHtml,
     logoUrl: logoUrl || null,
-    signatureImageUrl: signatureImageUrl || null,
+    signatureImageUrl: resolvedSigImage,
     workspaceSignature: signature,
   });
-  const text = buildBrandedEmailText(bodyText, signature, signatureImageUrl || null);
+  const text = buildBrandedEmailText(bodyText, signature, resolvedSigImage);
   // Store branded inner HTML (not full document) so deliverEmail wraps once on send
   const html = brandedInner;
 

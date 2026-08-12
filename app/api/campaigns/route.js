@@ -110,9 +110,8 @@ export async function POST(request) {
 
   const { data: leads, error: leadsError } = await session.supabase
     .from("leads")
-    .select("id, emails, name")
+    .select("id, emails, name, category_id")
     .eq("workspace_id", workspaceId)
-    .eq("category_id", categoryId)
     .in("id", uniqueLeadIds);
 
   if (leadsError) {
@@ -121,7 +120,7 @@ export async function POST(request) {
 
   if (!leads?.length || leads.length !== uniqueLeadIds.length) {
     return NextResponse.json(
-      { error: "Some selected leads were not found in that subcategory." },
+      { error: "Some selected leads were not found in this workspace." },
       { status: 400 }
     );
   }

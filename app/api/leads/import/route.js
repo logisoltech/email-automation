@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { ensureDefaultLeadCategories } from "@/lib/leads/categories";
+import { createImportRun, finalizeImportRun } from "@/lib/leads/import-run";
 
 const leadSchema = z.object({
   sortOrder: z.number().optional(),
@@ -76,9 +77,27 @@ export async function POST(request) {
     return NextResponse.json({ error: batchError.message }, { status: 500 });
   }
 
+  let importRunId = null;
+  try {
+    importRunId = await createImportRun(session.supabase, {
+      workspaceId,
+      userId: session.user.id,
+      source: "paste",
+      categoryId,
+      leadCount: leads.length,
+    });
+  } catch (err) {
+    await session.supabase.from("lead_batches").delete().eq("id", batch.id);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to start import run." },
+      { status: 500 }
+    );
+  }
+
   const rows = leads.map((lead, index) => ({
     workspace_id: workspaceId,
     batch_id: batch.id,
+    import_run_id: importRunId,
     category_id: categoryId,
     sort_order: lead.sortOrder ?? index,
     lead_date: lead.leadDate || null,
@@ -99,13 +118,18 @@ export async function POST(request) {
 
   if (leadsError) {
     await session.supabase.from("lead_batches").delete().eq("id", batch.id);
+    await session.supabase.from("lead_import_runs").delete().eq("id", importRunId);
     return NextResponse.json({ error: leadsError.message }, { status: 500 });
   }
 
+  const imported = inserted?.length ?? rows.length;
+  await finalizeImportRun(session.supabase, importRunId, imported);
+
   return NextResponse.json({
     success: true,
-    imported: inserted?.length ?? rows.length,
+    imported,
     batchId: batch.id,
+    importRunId,
     categoryId,
   });
 }

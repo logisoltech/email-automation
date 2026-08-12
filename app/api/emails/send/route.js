@@ -4,6 +4,8 @@ import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
 import { deliverEmail } from "@/lib/email/send";
 import { formatSmtpError } from "@/lib/email/nodemailer";
+import { createTrackingToken } from "@/lib/email/tracking";
+import { pushStatusForRecipients } from "@/lib/integrations/push-status";
 import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const sendSchema = z.object({
@@ -38,6 +40,7 @@ export async function POST(request) {
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
 
   try {
+    const trackingToken = createTrackingToken();
     const { html, bodyText: text } = await deliverEmail({
       subject,
       bodyText,
@@ -46,6 +49,7 @@ export async function POST(request) {
       settings,
       logoUrl: logoUrl || null,
       signatureImageUrl: signatureImageUrl || null,
+      trackingToken,
     });
 
     const { data, error } = await session.supabase
@@ -61,6 +65,7 @@ export async function POST(request) {
         ai_provider: getActiveProvider(),
         ai_prompt: aiPrompt || null,
         sent_at: new Date().toISOString(),
+        tracking_token: trackingToken,
       })
       .select("id")
       .single();
@@ -71,6 +76,8 @@ export async function POST(request) {
         { status: 500 }
       );
     }
+
+    void pushStatusForRecipients(workspaceId, recipients, "sent");
 
     return NextResponse.json({ success: true, id: data.id });
   } catch (error) {

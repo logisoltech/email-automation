@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, Mail, Server } from "lucide-react";
+import { CheckCircle2, Copy, Globe, Mail, Server } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,12 @@ import { VerifyEmailToast } from "@/components/auth/verify-email-toast";
 const OWNER_STEPS = [
   { id: 1, label: "Account" },
   { id: 2, label: "Sender" },
-  { id: 3, label: "Mailbox" },
+  { id: 3, label: "Delivery" },
 ];
+
+function domainFromEmail(email) {
+  return String(email || "").trim().toLowerCase().split("@")[1] || "";
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -39,6 +43,13 @@ export default function SignupPage() {
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [signatureText, setSignatureText] = useState("");
+
+  /** @type {null | "own_smtp" | "platform"} */
+  const [deliveryChoice, setDeliveryChoice] = useState(null);
+  const [sendingDomain, setSendingDomain] = useState("");
+  const [dnsRecords, setDnsRecords] = useState([]);
+  const [domainStatus, setDomainStatus] = useState(null);
+  const [domainVerified, setDomainVerified] = useState(false);
 
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
@@ -103,7 +114,30 @@ export default function SignupPage() {
             );
             setSmtpTested(Boolean(session.settings?.smtpLastTestedAt));
             setAccountLocked(true);
-            setStep(session.settings?.smtpConfigured ? 3 : 2);
+            if (session.settings?.sendingMode === "platform") {
+              setDeliveryChoice("platform");
+              setSendingDomain(session.settings?.sendingDomain || domainFromEmail(session.settings?.fromEmail || ""));
+              setDomainVerified(Boolean(session.settings?.domainVerifiedAt));
+              setStep(3);
+              try {
+                const domainRes = await fetch("/api/workspaces/domain");
+                if (domainRes.ok) {
+                  const domainJson = await domainRes.json();
+                  if (!cancelled) {
+                    setDnsRecords(domainJson.records || []);
+                    setDomainStatus(domainJson.status || null);
+                    if (domainJson.settings?.domainVerifiedAt) setDomainVerified(true);
+                  }
+                }
+              } catch {
+                // optional
+              }
+            } else if (session.settings?.smtpConfigured) {
+              setDeliveryChoice("own_smtp");
+              setStep(3);
+            } else {
+              setStep(session.settings?.fromEmail ? 3 : 2);
+            }
           } else if (!cancelled && continueSetup) {
             router.replace("/login?next=/signup?setup=1");
             return;
@@ -177,6 +211,7 @@ export default function SignupPage() {
       setFromName(fullName);
       setFromEmail(email);
       setSignatureText(`Best Regards,\n${fullName}`);
+      setSendingDomain(domainFromEmail(email));
       setAccountLocked(true);
       setStep(2);
       setSuccess("");
@@ -204,11 +239,103 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      setSendingDomain(domainFromEmail(fromEmail) || sendingDomain);
+      setDeliveryChoice(null);
       setStep(3);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function chooseDelivery(mode) {
+    setError("");
+    setSuccess("");
+    setDeliveryChoice(mode);
+    if (mode === "platform") {
+      setSendingDomain((d) => d || domainFromEmail(fromEmail));
+      setDnsRecords([]);
+      setDomainStatus(null);
+      setDomainVerified(false);
+    }
+  }
+
+  async function registerDomain() {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/workspaces/domain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: sendingDomain.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDnsRecords(data.records || []);
+      setDomainStatus(data.status || null);
+      setDomainVerified(data.status === "verified" || Boolean(data.settings?.domainVerifiedAt));
+      setSuccess(
+        data.status === "verified"
+          ? "Domain already verified."
+          : "Add these DNS records at your domain registrar, then verify."
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyDomain() {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/workspaces/domain/verify", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDnsRecords(data.records || dnsRecords);
+      setDomainStatus(data.status || null);
+      setDomainVerified(Boolean(data.verified));
+      setSuccess(data.message || (data.verified ? "Domain verified." : "Not verified yet."));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function finishPlatformOnboarding() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/workspaces/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendingMode: "platform",
+          completeOnboarding: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyText(value) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Copied");
+    } catch {
+      toast.error("Could not copy");
     }
   }
 
@@ -221,6 +348,7 @@ export default function SignupPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sendingMode: "own_smtp",
           smtpHost,
           smtpPort: Number(smtpPort),
           smtpUser,
@@ -281,15 +409,15 @@ export default function SignupPage() {
       ? "Start sending smarter outreach today."
       : step === 2
         ? "Tell us how you show up in the inbox."
-        : "Connect the mailbox you’ll send from.";
+        : "Choose how you’ll send email.";
 
   const brandDescription = isInvite
     ? "Create your account with the invited email. SMTP is already set up — you’ll land straight in the workspace."
     : step === 1
-      ? "Create a workspace, connect your mailbox, and let AI draft personalized emails for every lead."
+      ? "Create a workspace, connect delivery, and let AI draft personalized emails for every lead."
       : step === 2
-        ? "Set your From name, address, and signature before wiring SMTP."
-        : "Bring your own SMTP. We’ll test it before you finish.";
+        ? "Set your From name, address, and signature before choosing delivery."
+        : "Use your own SMTP, or send through our servers after verifying your domain.";
 
   if (bootstrapping) {
     return (
@@ -306,13 +434,13 @@ export default function SignupPage() {
         description={brandDescription}
         footer={
           isInvite
-            ? "Invited teammates skip SMTP setup"
-            : "Free to start. Bring your own SMTP"
+            ? "Invited teammates skip delivery setup"
+            : "Own SMTP or verified domain on our servers"
         }
       />
 
       <div className="flex w-full items-center justify-center px-6 py-12 lg:w-1/2">
-        <div className="w-full max-w-md space-y-8">
+        <div className={`w-full space-y-8 ${step === 3 && deliveryChoice ? "max-w-lg" : "max-w-md"}`}>
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-(--muted-text)">
               {isInvite
@@ -326,7 +454,11 @@ export default function SignupPage() {
                   ? "Create your account"
                   : step === 2
                     ? "Sender identity"
-                    : "Connect mailbox"}
+                    : deliveryChoice === "own_smtp"
+                      ? "Connect your SMTP"
+                      : deliveryChoice === "platform"
+                        ? "Verify your domain"
+                        : "How will you send?"}
             </h2>
             {step === 1 ? (
               <p className="mt-2 text-sm font-light text-(--muted-text)">
@@ -446,7 +578,7 @@ export default function SignupPage() {
                 className="min-h-28"
               />
               <Button type="submit" loading={loading} className="w-full">
-                Continue to mailbox
+                Continue to delivery
               </Button>
               {!accountLocked ? (
                 <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>
@@ -456,7 +588,175 @@ export default function SignupPage() {
             </form>
           ) : null}
 
-          {step === 3 ? (
+          {step === 3 && !deliveryChoice ? (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => chooseDelivery("own_smtp")}
+                className="w-full rounded-2xl border border-(--ink)/12 bg-(--surface) p-5 text-left transition hover:border-(--ink)/30 hover:shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--ink) text-(--on-ink)">
+                    <Server className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-base font-semibold text-(--heading)">Use your own server</p>
+                    <p className="mt-1 text-sm font-light text-(--muted-text)">
+                      Connect your SMTP host, mailbox, and password. Best if you already have
+                      mail.yourdomain.com set up.
+                    </p>
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => chooseDelivery("platform")}
+                className="w-full rounded-2xl border border-(--ink)/12 bg-(--surface) p-5 text-left transition hover:border-(--ink)/30 hover:shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--ink) text-(--on-ink)">
+                    <Globe className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-base font-semibold text-(--heading)">Use our server</p>
+                    <p className="mt-1 text-sm font-light text-(--muted-text)">
+                      Keep your From address (e.g. you@company.com). Add Amazon SES DNS records we
+                      provide, verify the domain, then send through OutreachOS.
+                    </p>
+                  </div>
+                </div>
+              </button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(2)}>
+                Back
+              </Button>
+            </div>
+          ) : null}
+
+          {step === 3 && deliveryChoice === "platform" ? (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-xl bg-(--ink) p-4 text-sm text-(--on-ink)/75">
+                <Globe className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Add the DNS records at your registrar for{" "}
+                  <strong className="text-(--on-ink)">{sendingDomain || "your domain"}</strong>.
+                  Verification can take a few minutes after you save them.
+                </p>
+              </div>
+              <Input
+                label="Sending domain"
+                value={sendingDomain}
+                onChange={(e) => {
+                  setSendingDomain(e.target.value);
+                  setDomainVerified(false);
+                  setDnsRecords([]);
+                }}
+                placeholder="company.com"
+                hint="Usually the part after @ in your From email."
+                required
+              />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={registerDomain}
+                  loading={loading}
+                  className="sm:flex-1"
+                >
+                  Get DNS records
+                </Button>
+                <Button
+                  type="button"
+                  onClick={verifyDomain}
+                  loading={loading}
+                  disabled={!dnsRecords.length && !domainStatus}
+                  className="sm:flex-1"
+                >
+                  Verify domain
+                </Button>
+              </div>
+
+              {dnsRecords.length ? (
+                <div className="overflow-x-auto rounded-xl border border-(--ink)/10">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="bg-(--ink)/4 text-(--muted-text)">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Type</th>
+                        <th className="px-3 py-2 font-medium">Name</th>
+                        <th className="px-3 py-2 font-medium">Value</th>
+                        <th className="px-3 py-2 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dnsRecords.map((row, index) => (
+                        <tr key={`${row.type}-${row.name}-${index}`} className="border-t border-(--ink)/8">
+                          <td className="px-3 py-2 align-top font-medium text-(--heading)">
+                            {row.type}
+                            {row.priority != null ? (
+                              <span className="mt-0.5 block font-normal text-(--muted-text)">
+                                prio {row.priority}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="max-w-[8rem] break-all px-3 py-2 align-top text-(--body)">
+                            {row.name}
+                          </td>
+                          <td className="max-w-[14rem] break-all px-3 py-2 align-top text-(--body)">
+                            {row.value}
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-(--muted-text) hover:bg-(--ink)/6 hover:text-(--heading)"
+                              onClick={() => copyText(row.value)}
+                              aria-label="Copy value"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {domainStatus ? (
+                <p className="text-center text-xs text-(--muted-text)">
+                  Status: <strong className="text-(--heading)">{domainStatus}</strong>
+                </p>
+              ) : null}
+
+              <Button
+                type="button"
+                onClick={finishPlatformOnboarding}
+                loading={loading}
+                disabled={!domainVerified}
+                className="w-full"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Finish
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setDeliveryChoice(null);
+                  setError("");
+                  setSuccess("");
+                }}
+              >
+                Back to options
+              </Button>
+              {!domainVerified ? (
+                <p className="text-center text-xs text-(--muted-text)">
+                  Domain must verify before you can finish.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {step === 3 && deliveryChoice === "own_smtp" ? (
             <div className="space-y-4">
               <div className="flex items-start gap-3 rounded-xl bg-(--ink) p-4 text-sm text-(--on-ink)/75">
                 <Server className="mt-0.5 h-4 w-4 shrink-0" />
@@ -582,8 +882,17 @@ export default function SignupPage() {
                   Finish
                 </Button>
               </div>
-              <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(2)}>
-                Back
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setDeliveryChoice(null);
+                  setError("");
+                  setSuccess("");
+                }}
+              >
+                Back to options
               </Button>
               {!smtpTested ? (
                 <p className="text-center text-xs text-(--muted-text)">

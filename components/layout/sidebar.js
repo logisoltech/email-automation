@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Plug,
   LayoutDashboard,
   Mail,
   History,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/templates", label: "Templates", icon: FileText },
   { href: "/instructions", label: "AI Instructions", icon: Sparkles },
   { href: "/history", label: "History", icon: History },
+  { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

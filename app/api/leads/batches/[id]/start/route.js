@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getWorkspaceSettings } from "@/lib/workspaces";
+import { isDeliveryReady } from "@/lib/workspaces/delivery";
 
 /**
  * @param {import("next/server").NextRequest} request
@@ -33,9 +34,9 @@ export async function POST(request, { params }) {
 
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
 
-  if (!settings?.smtp_configured && !process.env.SMTP_HOST) {
+  if (!isDeliveryReady(settings) && !process.env.SMTP_HOST) {
     return NextResponse.json(
-      { error: "Configure SMTP in workspace settings before sending." },
+      { error: "Configure SMTP or verify your domain in Settings before sending." },
       { status: 400 }
     );
   }

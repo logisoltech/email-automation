@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1102.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-query": "^5.101.4",
     "@tiptap/extension-font-family": "^3.29.2",

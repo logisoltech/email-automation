@@ -7,9 +7,15 @@ export async function GET() {
 
   const workspaceId = session.workspace.id;
 
-  const [emailsResult, campaignsResult] = await Promise.all([
+  const [emailsResult, campaignsResult, openedResult] = await Promise.all([
     session.supabase.from("emails").select("status").eq("workspace_id", workspaceId),
     session.supabase.from("campaigns").select("status").eq("workspace_id", workspaceId),
+    session.supabase
+      .from("emails")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("status", "sent")
+      .not("opened_at", "is", null),
   ]);
 
   if (emailsResult.error) {
@@ -18,9 +24,14 @@ export async function GET() {
 
   const emails = emailsResult.data ?? [];
   const campaigns = campaignsResult.error ? [] : campaignsResult.data ?? [];
+  const sent = emails.filter((row) => row.status === "sent").length;
+  const opened = openedResult.error ? 0 : openedResult.count ?? 0;
+  const openRate = sent > 0 ? Math.round((opened / sent) * 100) : 0;
 
   const stats = {
-    sent: emails.filter((row) => row.status === "sent").length,
+    sent,
+    opened,
+    openRate,
     failed: emails.filter((row) => row.status === "failed").length,
     scheduled:
       emails.filter((row) => row.status === "scheduled").length +

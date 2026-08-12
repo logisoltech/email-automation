@@ -14,6 +14,8 @@ export async function proxy(request) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/emails/process-scheduled") ||
+    // Open-tracking pixel (opaque UUID; no auth)
+    pathname.startsWith("/api/t/o/") ||
     pathname === "/favicon.ico" ||
     // Public invite preview (token query required)
     (pathname === "/api/workspaces/invitations" &&

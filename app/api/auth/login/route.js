@@ -3,6 +3,7 @@ import { z } from "zod";
 import { setAuthCookies, setActiveWorkspaceCookie } from "@/lib/auth/cookies";
 import { createAnonClient, createServerClient } from "@/lib/supabase/server";
 import { getWorkspaceSettings, listUserWorkspaces, publicWorkspaceSettings } from "@/lib/workspaces";
+import { ownerNeedsOnboarding } from "@/lib/workspaces/delivery";
 import { acceptWorkspaceInvitation } from "@/lib/workspaces/invitations";
 
 const loginSchema = z.object({
@@ -78,8 +79,7 @@ export async function POST(request) {
     const needsOnboarding =
       !joinedViaInvite &&
       (!workspace ||
-        (workspace.role === "owner" &&
-          (!workspace.onboarding_completed || !settings?.smtpConfigured)));
+        (workspace.role === "owner" && ownerNeedsOnboarding(workspace, settings)));
 
     const response = NextResponse.json({
       user: {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/get-session";
+import { ownerNeedsOnboarding } from "@/lib/workspaces/delivery";
 import { getWorkspaceSettings, publicWorkspaceSettings } from "@/lib/workspaces";
 
 export async function GET() {
@@ -23,8 +24,7 @@ export async function GET() {
   const isOwner = session.workspace?.role === "owner";
   const needsOnboarding =
     !session.workspace ||
-    (isOwner &&
-      (!session.workspace.onboarding_completed || !settings?.smtpConfigured));
+    (isOwner && ownerNeedsOnboarding(session.workspace, settings));
 
   return NextResponse.json({
     authenticated: true,

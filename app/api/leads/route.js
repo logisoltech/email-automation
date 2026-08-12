@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { ensureDefaultLeadCategories } from "@/lib/leads/categories";
+import { getLatestImportRun } from "@/lib/leads/import-run";
 
 /**
  * List / search workspace leads.
- * Query: q, categoryId, date, page, pageSize
+ * Query: q, categoryId, date, page, pageSize, importRun=latest
  */
 export async function GET(request) {
   const { session, error: sessionError } = await requireWorkspaceSession();
@@ -16,25 +17,56 @@ export async function GET(request) {
   const q = (searchParams.get("q") || "").trim();
   const categoryId = searchParams.get("categoryId") || "";
   const date = (searchParams.get("date") || "").trim();
+  const importRunParam = (searchParams.get("importRun") || "").trim().toLowerCase();
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize")) || 25));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  /** @type {null | { id: string; source: string; categoryId: string | null; leadCount: number; createdAt: string }} */
+  let importRunMeta = null;
+
+  if (importRunParam === "latest") {
+    try {
+      const latest = await getLatestImportRun(session.supabase, workspaceId);
+      if (!latest) {
+        return NextResponse.json({
+          leads: [],
+          importRun: null,
+          pagination: { page, pageSize, total: 0, totalPages: 1 },
+        });
+      }
+      importRunMeta = {
+        id: latest.id,
+        source: latest.source,
+        categoryId: latest.category_id,
+        leadCount: latest.lead_count,
+        createdAt: latest.created_at,
+      };
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to load latest import." },
+        { status: 500 }
+      );
+    }
+  }
+
   let query = session.supabase
     .from("leads")
     .select(
-      "id, name, emails, phone, country, category, category_id, project_description, budget, lead_date, status, created_at",
+      "id, name, emails, phone, country, category, category_id, project_description, budget, lead_date, status, created_at, import_run_id",
       { count: "exact" }
     )
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
-  if (categoryId) {
+  if (importRunMeta) {
+    query = query.eq("import_run_id", importRunMeta.id);
+  } else if (categoryId) {
     query = query.eq("category_id", categoryId);
   }
 
-  if (date) {
+  if (date && !importRunMeta) {
     query = query.ilike("lead_date", `%${date}%`);
   }
 
@@ -72,6 +104,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     leads,
+    importRun: importRunMeta,
     pagination: {
       page,
       pageSize,

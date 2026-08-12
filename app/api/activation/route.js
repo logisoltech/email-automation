@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWorkspaceSettings } from "@/lib/workspaces";
+import { isDeliveryReady } from "@/lib/workspaces/delivery";
 
 /**
  * Build derived first-win checklist for the active workspace.
@@ -18,7 +19,7 @@ async function buildActivation(session) {
     .maybeSingle();
 
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
-  const smtpConfigured = Boolean(settings?.smtp_configured);
+  const smtpConfigured = isDeliveryReady(settings);
 
   const [{ count: batchCount }, { count: leadCount }, { count: memberCount }, { count: inviteCount }] =
     await Promise.all([
@@ -127,8 +128,8 @@ async function buildActivation(session) {
   if (isOwner) {
     steps.push({
       id: "smtp",
-      title: "Connect SMTP",
-      hint: "Add your mailbox so emails send from your domain.",
+      title: "Connect delivery",
+      hint: "Add your SMTP or verify your domain for platform sending.",
       href: "/settings",
       done: smtpConfigured,
     });

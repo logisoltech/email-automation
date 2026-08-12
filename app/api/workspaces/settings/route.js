@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { encryptSecret } from "@/lib/crypto/secrets";
+import { isDeliveryReady } from "@/lib/workspaces/delivery";
 import { getWorkspaceSettings, publicWorkspaceSettings } from "@/lib/workspaces";
 
 export async function GET() {
@@ -19,6 +20,8 @@ const updateSchema = z.object({
   fromName: z.string().max(120).optional(),
   fromEmail: z.string().email().optional().or(z.literal("")),
   signatureText: z.string().max(4000).optional(),
+  signatureImageUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+  sendingMode: z.enum(["own_smtp", "platform"]).optional(),
   smtpHost: z.string().max(255).optional().nullable(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   smtpSecure: z.boolean().optional(),
@@ -81,6 +84,18 @@ export async function PUT(request) {
     updatePayload.signature_text = signatureText;
     updatePayload.signature_html = signatureHtml;
   }
+  if (data.signatureImageUrl !== undefined) {
+    updatePayload.signature_image_url =
+      data.signatureImageUrl === "" || data.signatureImageUrl === null
+        ? null
+        : data.signatureImageUrl;
+  }
+  if (data.sendingMode !== undefined) {
+    updatePayload.sending_mode = data.sendingMode;
+    if (data.sendingMode === "own_smtp") {
+      // Switching away from platform does not clear domain fields (can re-verify later)
+    }
+  }
   if (data.smtpHost !== undefined) updatePayload.smtp_host = data.smtpHost;
   if (data.smtpPort !== undefined) updatePayload.smtp_port = data.smtpPort;
   if (data.smtpSecure !== undefined) updatePayload.smtp_secure = data.smtpSecure;
@@ -111,6 +126,12 @@ export async function PUT(request) {
   const hasPass = Boolean(data.smtpPass || existing?.smtp_pass_encrypted);
   updatePayload.smtp_configured = Boolean(host && user && hasPass);
 
+  if (data.sendingMode === "own_smtp" || (data.smtpHost !== undefined && !data.sendingMode)) {
+    if (data.smtpHost || data.smtpUser || data.smtpPass) {
+      updatePayload.sending_mode = "own_smtp";
+    }
+  }
+
   const { data: settings, error: settingsError } = await session.supabase
     .from("workspace_settings")
     .update(updatePayload)
@@ -123,15 +144,50 @@ export async function PUT(request) {
   }
 
   if (data.completeOnboarding) {
-    if (!updatePayload.smtp_configured && !settings.smtp_configured) {
-      return NextResponse.json(
-        { error: "Configure SMTP before completing onboarding." },
-        { status: 400 }
-      );
+    const mode = settings.sending_mode;
+    if (mode === "platform") {
+      if (!settings.domain_verified_at) {
+        return NextResponse.json(
+          { error: "Verify your domain before completing onboarding." },
+          { status: 400 }
+        );
+      }
+      const fromDomain = String(settings.from_email || "")
+        .split("@")[1]
+        ?.toLowerCase();
+      const sendingDomain = String(settings.sending_domain || "").toLowerCase();
+      if (fromDomain && sendingDomain && fromDomain !== sendingDomain) {
+        // Allow subdomain From on verified apex? Strict match for v1.
+        if (
+          !fromDomain.endsWith(`.${sendingDomain}`) &&
+          fromDomain !== sendingDomain
+        ) {
+          return NextResponse.json(
+            {
+              error: `From email must use your verified domain (${sendingDomain}).`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    } else {
+      if (!updatePayload.smtp_configured && !settings.smtp_configured) {
+        return NextResponse.json(
+          { error: "Configure SMTP before completing onboarding." },
+          { status: 400 }
+        );
+      }
+      if (!settings.smtp_last_tested_at) {
+        return NextResponse.json(
+          { error: "Send a successful SMTP test before completing onboarding." },
+          { status: 400 }
+        );
+      }
     }
-    if (!settings.smtp_last_tested_at) {
+
+    if (!isDeliveryReady(settings)) {
       return NextResponse.json(
-        { error: "Send a successful SMTP test before completing onboarding." },
+        { error: "Delivery is not ready yet. Finish SMTP or domain verification." },
         { status: 400 }
       );
     }

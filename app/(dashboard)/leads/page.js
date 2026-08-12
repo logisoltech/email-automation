@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Square,
   Eye,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Alert } from "@/components/ui/alert";
 import { CreateLeadModal } from "@/components/leads/create-lead-modal";
 import { LeadDetailModal } from "@/components/leads/lead-detail-modal";
+import { CrmImportPanel } from "@/components/leads/crm-import-panel";
 import { getBudgetTier, getBudgetTierLabel } from "@/lib/leads/budget-tier";
 import { notify } from "@/lib/notify";
 import { fetchJson, queryKeys } from "@/lib/query";
@@ -35,6 +37,9 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [showHubspotImport, setShowHubspotImport] = useState(false);
+  const [showZohoImport, setShowZohoImport] = useState(false);
+  const [showSalesforceImport, setShowSalesforceImport] = useState(false);
   const [showCreateLead, setShowCreateLead] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
   const [detailLeadId, setDetailLeadId] = useState(null);
@@ -301,7 +306,59 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setShowImport((v) => !v)}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowHubspotImport((v) => !v);
+              if (!showHubspotImport) {
+                setShowImport(false);
+                setShowZohoImport(false);
+                setShowSalesforceImport(false);
+              }
+            }}
+          >
+            <Link2 className="h-4 w-4" />
+            {showHubspotImport ? "Hide HubSpot" : "From HubSpot"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowZohoImport((v) => !v);
+              if (!showZohoImport) {
+                setShowImport(false);
+                setShowHubspotImport(false);
+                setShowSalesforceImport(false);
+              }
+            }}
+          >
+            <Link2 className="h-4 w-4" />
+            {showZohoImport ? "Hide Zoho" : "From Zoho"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowSalesforceImport((v) => !v);
+              if (!showSalesforceImport) {
+                setShowImport(false);
+                setShowHubspotImport(false);
+                setShowZohoImport(false);
+              }
+            }}
+          >
+            <Link2 className="h-4 w-4" />
+            {showSalesforceImport ? "Hide Salesforce" : "From Salesforce"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowImport((v) => !v);
+              if (!showImport) {
+                setShowHubspotImport(false);
+                setShowZohoImport(false);
+                setShowSalesforceImport(false);
+              }
+            }}
+          >
             <ClipboardPaste className="h-4 w-4" />
             {showImport ? "Hide import" : "Import leads"}
           </Button>
@@ -344,6 +401,42 @@ export default function LeadsPage() {
         onDeleted={async () => {
           notify.success("Lead deleted", "Removed from your workspace.");
           setDetailLeadId(null);
+          await invalidateAfterLeadChange();
+        }}
+      />
+
+      <CrmImportPanel
+        provider="hubspot"
+        label="HubSpot"
+        open={showHubspotImport}
+        categories={categories}
+        defaultCategoryId={importCategoryId || activeCategoryId}
+        onClose={() => setShowHubspotImport(false)}
+        onImported={async () => {
+          await invalidateAfterLeadChange();
+        }}
+      />
+
+      <CrmImportPanel
+        provider="zoho"
+        label="Zoho"
+        open={showZohoImport}
+        categories={categories}
+        defaultCategoryId={importCategoryId || activeCategoryId}
+        onClose={() => setShowZohoImport(false)}
+        onImported={async () => {
+          await invalidateAfterLeadChange();
+        }}
+      />
+
+      <CrmImportPanel
+        provider="salesforce"
+        label="Salesforce"
+        open={showSalesforceImport}
+        categories={categories}
+        defaultCategoryId={importCategoryId || activeCategoryId}
+        onClose={() => setShowSalesforceImport(false)}
+        onImported={async () => {
           await invalidateAfterLeadChange();
         }}
       />

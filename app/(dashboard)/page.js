@@ -11,7 +11,7 @@ import {
   ArrowUpRight,
   Users,
   Sparkles,
-  AlertTriangle,
+  Eye,
 } from "lucide-react";
 import { ActivationChecklist } from "@/components/dashboard/activation-checklist";
 import { fetchJson, queryKeys } from "@/lib/query";
@@ -40,6 +40,8 @@ export default function DashboardPage() {
 
   const stats = {
     sent: 0,
+    opened: 0,
+    openRate: 0,
     scheduled: 0,
     failed: 0,
     campaigns: 0,
@@ -75,6 +77,13 @@ export default function DashboardPage() {
       href: "/history",
     },
     {
+      label: "Opened",
+      value: stats.opened,
+      icon: Eye,
+      note: stats.sent > 0 ? `${stats.openRate}% open rate` : "No sends yet",
+      href: "/history",
+    },
+    {
       label: "Scheduled",
       value: stats.scheduled,
       icon: Clock,
@@ -87,14 +96,6 @@ export default function DashboardPage() {
       icon: Megaphone,
       note: `${stats.campaignSent} sent`,
       href: "/campaigns",
-    },
-    {
-      label: "Failed",
-      value: stats.failed,
-      icon: AlertTriangle,
-      note: "Needs review",
-      href: "/history",
-      alert: stats.failed > 0,
     },
   ];
 
