@@ -110,7 +110,7 @@ npm run dev
 
 - Deploy to Vercel.
 - Set all env vars in the project settings.
-- Ensure `vercel.json` cron hits `/api/emails/process-scheduled` every minute.
+- Hobby does not support Vercel Cron. Ping `GET /api/emails/process-scheduled` with `Authorization: Bearer CRON_SECRET` from an external scheduler (Google Apps Script, cron-job.org, etc.).
 - Add Supabase auth redirect URLs for your production domain.
 
 ## Stripe (later)
