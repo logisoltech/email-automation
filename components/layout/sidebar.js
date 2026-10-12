@@ -63,7 +63,7 @@ export function Sidebar({
             <Mail className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-semibold tracking-[-0.02em] text-(--on-ink)">OutreachOS</p>
+            <p className="text-sm font-semibold tracking-[-0.02em] text-(--on-ink)">Bulkly</p>
             <p className="text-[11px] font-light uppercase tracking-[0.18em] text-(--on-ink)/35">
               Outreach
             </p>

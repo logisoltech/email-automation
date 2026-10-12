@@ -12,7 +12,7 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "OutreachOS",
+  title: "Bulkly",
   description: "AI-powered outreach email platform for your team",
 };
 

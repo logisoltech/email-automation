@@ -621,7 +621,7 @@ export default function SignupPage() {
                     <p className="text-base font-semibold text-(--heading)">Use our server</p>
                     <p className="mt-1 text-sm font-light text-(--muted-text)">
                       Keep your From address (e.g. you@company.com). Add Amazon SES DNS records we
-                      provide, verify the domain, then send through OutreachOS.
+                      provide, verify the domain, then send through Bulkly.
                     </p>
                   </div>
                 </div>

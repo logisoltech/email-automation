@@ -426,7 +426,7 @@ export default function SettingsPage() {
           {isOwner ? (
             <Card
               title="Email delivery"
-              description="Send with your SMTP, or through OutreachOS after domain verification"
+              description="Send with your SMTP, or through Bulkly after domain verification"
             >
               <div className="mb-4 flex flex-wrap gap-2">
                 <StatusPill

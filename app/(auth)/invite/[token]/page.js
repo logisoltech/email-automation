@@ -97,7 +97,7 @@ export default function InvitePage() {
           </>
         ) : (
           <p className="text-sm text-(--body)">
-            You&apos;ve been invited to join a workspace on OutreachOS.
+            You&apos;ve been invited to join a workspace on Bulkly.
           </p>
         )}
 

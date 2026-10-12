@@ -1,4 +1,4 @@
-# OutreachOS
+# Bulkly
 
 Multi-tenant AI outreach platform. Teams sign up, create a workspace, connect delivery (own SMTP or platform domain verify via Amazon SES), import leads, generate personalized emails with platform AI, and send at a controlled rate.
 
@@ -54,7 +54,7 @@ npm run dev
    - `AWS_SECRET_ACCESS_KEY`
    - `AWS_REGION` (same region as your SES identities, e.g. `us-east-1`)
 3. In AWS SES console, leave the sandbox or request **production access** so you can send to any recipient.
-4. Users add the CNAME records returned by OutreachOS for their domain, then verify.
+4. Users add the CNAME records returned by Bulkly for their domain, then verify.
 
 ## HubSpot (optional)
 

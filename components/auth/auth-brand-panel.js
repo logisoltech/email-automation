@@ -17,7 +17,7 @@ export function AuthBrandPanel({ title, description, footer }) {
             <Mail className="h-5 w-5" />
           </div>
           <span className="text-lg font-semibold tracking-[-0.02em] text-(--on-ink)">
-            OutreachOS
+            Bulkly
           </span>
         </div>
 
