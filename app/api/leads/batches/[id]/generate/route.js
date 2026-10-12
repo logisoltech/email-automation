@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { generateLeadEmail } from "@/lib/ai/lead-email";
+import { mergeEmailFields } from "@/lib/email/merge-placeholders";
 import { getWorkspaceSettings } from "@/lib/workspaces";
 
 const CHUNK_SIZE = 8;
@@ -74,12 +75,22 @@ export async function POST(request, { params }) {
         { workspaceId, settings, supabase: session.supabase }
       );
 
+      const merged = mergeEmailFields(
+        {
+          subject: result.subject,
+          bodyText: result.bodyText,
+          bodyHtml: result.bodyHtml,
+        },
+        lead,
+        { email: Array.isArray(lead.emails) ? lead.emails[0] : undefined }
+      );
+
       await session.supabase
         .from("leads")
         .update({
-          subject: result.subject,
-          body_text: result.bodyText,
-          body_html: result.bodyHtml,
+          subject: merged.subject,
+          body_text: merged.bodyText,
+          body_html: merged.bodyHtml,
           status: "generated",
           generated_at: new Date().toISOString(),
           error_message: null,

@@ -603,7 +603,11 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={smtpSecure}
-                      onChange={(e) => setSmtpSecure(e.target.checked)}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setSmtpSecure(on);
+                        setSmtpPort(on ? 465 : 587);
+                      }}
                       className="accent-(--ink)"
                     />
                     Use SSL (port 465)

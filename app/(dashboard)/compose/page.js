@@ -15,6 +15,10 @@ import {
   RecipientField,
   parseRecipientEmails,
 } from "@/components/compose/recipient-field";
+import {
+  emailHasPlaceholders,
+  mergeEmailFields,
+} from "@/lib/email/merge-placeholders";
 import { fetchJson, queryKeys } from "@/lib/query";
 
 function defaultScheduleValue() {
@@ -43,6 +47,10 @@ function ComposeForm() {
   const [sending, setSending] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
+  /** Raw template/AI text before per-lead merge (keeps {{placeholders}}). */
+  const [mergeSource, setMergeSource] = useState(null);
+  /** @type {[Record<string, unknown>[], Function]} */
+  const [selectedLeads, setSelectedLeads] = useState([]);
 
   const templatesQuery = useQuery({
     queryKey: queryKeys.templates(),
@@ -61,16 +69,60 @@ function ComposeForm() {
     }
   }, [searchParams, templates]);
 
+  /**
+   * @param {{ subject: string; bodyText: string; bodyHtml: string }} source
+   * @param {Record<string, unknown>[]} leads
+   */
+  function applyMergedPreview(source, leads) {
+    if (!source) return;
+    if (leads.length === 1) {
+      const merged = mergeEmailFields(source, leads[0]);
+      setSubject(merged.subject);
+      setBodyText(merged.bodyText);
+      setBodyHtml(merged.bodyHtml);
+    } else {
+      setSubject(source.subject);
+      setBodyText(source.bodyText);
+      setBodyHtml(source.bodyHtml);
+    }
+    setEditorKey((k) => k + 1);
+  }
+
   function applyTemplate(template) {
-    setSubject(template.subject);
-    setBodyText(template.body_text);
-    setBodyHtml(template.body_html || template.body_text);
+    const source = {
+      subject: template.subject || "",
+      bodyText: template.body_text || "",
+      bodyHtml: template.body_html || template.body_text || "",
+    };
+    setMergeSource(source);
     setLogoUrl(template.logo_url || "");
     setSignatureImageUrl(template.signature_image_url || "");
     setSelectedTemplate(template.id);
-    setEditorKey((k) => k + 1);
-    setSuccess(`Loaded template: ${template.name}`);
+    applyMergedPreview(source, selectedLeads);
+
+    const hasTokens = emailHasPlaceholders(source);
+    if (hasTokens && selectedLeads.length === 1) {
+      setSuccess(`Loaded template: ${template.name}. Placeholders filled for ${selectedLeads[0].name}.`);
+    } else if (hasTokens && selectedLeads.length > 1) {
+      setSuccess(
+        `Loaded template: ${template.name}. Placeholders will be filled per recipient when you send.`
+      );
+    } else {
+      setSuccess(`Loaded template: ${template.name}`);
+    }
     setError("");
+  }
+
+  function handleLeadsSelected(leads) {
+    setSelectedLeads(leads);
+    if (mergeSource && emailHasPlaceholders(mergeSource)) {
+      applyMergedPreview(mergeSource, leads);
+      if (leads.length === 1) {
+        setSuccess(`Placeholders filled for ${leads[0].name}.`);
+      } else if (leads.length > 1) {
+        setSuccess("Placeholders will be filled per recipient when you send.");
+      }
+    }
   }
 
   function handleTemplateSelect(event) {
@@ -106,10 +158,13 @@ function ComposeForm() {
         return;
       }
 
-      setSubject(data.subject);
-      setBodyText(data.bodyText);
-      setBodyHtml(data.bodyHtml);
-      setEditorKey((k) => k + 1);
+      const source = {
+        subject: data.subject || "",
+        bodyText: data.bodyText || "",
+        bodyHtml: data.bodyHtml || data.bodyText || "",
+      };
+      setMergeSource(source);
+      applyMergedPreview(source, selectedLeads);
       setSuccess("Email generated. Review and edit before sending.");
     } catch {
       setError("Something went wrong while generating.");
@@ -131,14 +186,21 @@ function ComposeForm() {
 
     setSending(true);
 
+    // Multi-recipient + placeholders: send raw source so each lead gets their own merge.
+    const useRawForFanOut =
+      recipientList.length > 1 && mergeSource && emailHasPlaceholders(mergeSource);
+    const payloadSubject = useRawForFanOut ? mergeSource.subject : subject;
+    const payloadBodyText = useRawForFanOut ? mergeSource.bodyText : bodyText;
+    const payloadBodyHtml = useRawForFanOut ? mergeSource.bodyHtml : bodyHtml;
+
     try {
       const response = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject,
-          bodyText,
-          bodyHtml,
+          subject: payloadSubject,
+          bodyText: payloadBodyText,
+          bodyHtml: payloadBodyHtml,
           recipients: recipientList,
           aiPrompt: prompt || undefined,
           logoUrl: logoUrl || null,
@@ -180,14 +242,20 @@ function ComposeForm() {
 
     setScheduling(true);
 
+    const useRawForFanOut =
+      recipientList.length > 1 && mergeSource && emailHasPlaceholders(mergeSource);
+    const payloadSubject = useRawForFanOut ? mergeSource.subject : subject;
+    const payloadBodyText = useRawForFanOut ? mergeSource.bodyText : bodyText;
+    const payloadBodyHtml = useRawForFanOut ? mergeSource.bodyHtml : bodyHtml;
+
     try {
       const response = await fetch("/api/emails/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject,
-          bodyText,
-          bodyHtml,
+          subject: payloadSubject,
+          bodyText: payloadBodyText,
+          bodyHtml: payloadBodyHtml,
           recipients: recipientList,
           scheduledAt: new Date(scheduledAt).toISOString(),
           aiPrompt: prompt || undefined,
@@ -221,6 +289,8 @@ function ComposeForm() {
     setSelectedTemplate("");
     setLogoUrl("");
     setSignatureImageUrl("");
+    setMergeSource(null);
+    setSelectedLeads([]);
     setScheduledAt(defaultScheduleValue());
     setEditorKey((k) => k + 1);
     setError("");
@@ -295,7 +365,10 @@ function ComposeForm() {
         </div>
       </Card>
 
-      <Card title="Email preview" description="Edit the subject and body before sending.">
+      <Card
+        title="Email preview"
+        description="{{name}}, {{company}}, and other placeholders fill from the selected lead. With multiple leads, each gets their own values on send."
+      >
         <div className="space-y-4">
           {logoUrl || signatureImageUrl ? (
             <div className="rounded-xl border border-(--ink)/10 bg-white p-4 text-sm text-slate-900">
@@ -340,7 +413,11 @@ function ComposeForm() {
             }}
             placeholder="Email body will appear here after generation or template load"
           />
-          <RecipientField value={recipients} onChange={setRecipients} />
+          <RecipientField
+            value={recipients}
+            onChange={setRecipients}
+            onLeadsSelected={handleLeadsSelected}
+          />
 
           <Input
             label="Schedule for later"

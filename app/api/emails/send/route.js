@@ -5,6 +5,11 @@ import { getActiveProvider } from "@/lib/ai";
 import { deliverEmail } from "@/lib/email/send";
 import { formatSmtpError } from "@/lib/email/nodemailer";
 import { createTrackingToken } from "@/lib/email/tracking";
+import {
+  emailHasPlaceholders,
+  mapLeadsByRecipientEmail,
+  mergeEmailFields,
+} from "@/lib/email/merge-placeholders";
 import { pushStatusForRecipients } from "@/lib/integrations/push-status";
 import { getWorkspaceSettings } from "@/lib/workspaces";
 
@@ -39,47 +44,135 @@ export async function POST(request) {
   const workspaceId = session.workspace.id;
   const settings = await getWorkspaceSettings(session.supabase, workspaceId);
 
-  try {
-    const trackingToken = createTrackingToken();
-    const { html, bodyText: text } = await deliverEmail({
-      subject,
-      bodyText,
-      bodyHtml,
-      recipients,
-      settings,
-      logoUrl: logoUrl || null,
-      signatureImageUrl: signatureImageUrl || null,
-      trackingToken,
-    });
+  const needsMerge = emailHasPlaceholders({ subject, bodyText, bodyHtml });
+  const leadsByEmail = needsMerge
+    ? await mapLeadsByRecipientEmail(session.supabase, workspaceId, recipients)
+    : new Map();
 
-    const { data, error } = await session.supabase
-      .from("emails")
-      .insert({
-        workspace_id: workspaceId,
-        sent_by: session.user.id,
-        subject,
-        body_html: html,
-        body_text: text,
-        recipients,
-        status: "sent",
-        ai_provider: getActiveProvider(),
-        ai_prompt: aiPrompt || null,
-        sent_at: new Date().toISOString(),
-        tracking_token: trackingToken,
+  /** @type {{ email: string; subject: string; bodyText: string; bodyHtml: string }[]} */
+  const sends = needsMerge
+    ? recipients.map((email) => {
+        const lead = leadsByEmail.get(email.toLowerCase()) || null;
+        const merged = mergeEmailFields(
+          { subject, bodyText, bodyHtml: bodyHtml || "" },
+          lead,
+          { email }
+        );
+        return {
+          email,
+          subject: merged.subject,
+          bodyText: merged.bodyText,
+          bodyHtml: merged.bodyHtml,
+        };
       })
-      .select("id")
-      .single();
+    : [
+        {
+          email: null,
+          subject,
+          bodyText,
+          bodyHtml: bodyHtml || "",
+          recipients,
+        },
+      ];
 
-    if (error) {
-      return NextResponse.json(
-        { error: `Email sent but failed to save history: ${error.message}` },
-        { status: 500 }
-      );
+  try {
+    /** @type {string[]} */
+    const ids = [];
+
+    if (!needsMerge) {
+      const trackingToken = createTrackingToken();
+      const { html, bodyText: text } = await deliverEmail({
+        subject,
+        bodyText,
+        bodyHtml,
+        recipients,
+        settings,
+        logoUrl: logoUrl || null,
+        signatureImageUrl: signatureImageUrl || null,
+        trackingToken,
+      });
+
+      const { data, error } = await session.supabase
+        .from("emails")
+        .insert({
+          workspace_id: workspaceId,
+          sent_by: session.user.id,
+          subject,
+          body_html: html,
+          body_text: text,
+          recipients,
+          status: "sent",
+          ai_provider: getActiveProvider(),
+          ai_prompt: aiPrompt || null,
+          sent_at: new Date().toISOString(),
+          tracking_token: trackingToken,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        return NextResponse.json(
+          { error: `Email sent but failed to save history: ${error.message}` },
+          { status: 500 }
+        );
+      }
+
+      ids.push(data.id);
+      void pushStatusForRecipients(workspaceId, recipients, "sent");
+    } else {
+      for (const item of sends) {
+        const trackingToken = createTrackingToken();
+        const to = [item.email];
+        const { html, bodyText: text } = await deliverEmail({
+          subject: item.subject,
+          bodyText: item.bodyText,
+          bodyHtml: item.bodyHtml,
+          recipients: to,
+          settings,
+          logoUrl: logoUrl || null,
+          signatureImageUrl: signatureImageUrl || null,
+          trackingToken,
+        });
+
+        const { data, error } = await session.supabase
+          .from("emails")
+          .insert({
+            workspace_id: workspaceId,
+            sent_by: session.user.id,
+            subject: item.subject,
+            body_html: html,
+            body_text: text,
+            recipients: to,
+            status: "sent",
+            ai_provider: getActiveProvider(),
+            ai_prompt: aiPrompt || null,
+            sent_at: new Date().toISOString(),
+            tracking_token: trackingToken,
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          return NextResponse.json(
+            {
+              error: `Sent some messages but failed to save history: ${error.message}`,
+              ids,
+            },
+            { status: 500 }
+          );
+        }
+
+        ids.push(data.id);
+        void pushStatusForRecipients(workspaceId, to, "sent");
+      }
     }
 
-    void pushStatusForRecipients(workspaceId, recipients, "sent");
-
-    return NextResponse.json({ success: true, id: data.id });
+    return NextResponse.json({
+      success: true,
+      id: ids[0],
+      ids,
+      personalized: needsMerge,
+    });
   } catch (error) {
     const message = formatSmtpError(error);
 

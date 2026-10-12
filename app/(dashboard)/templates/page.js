@@ -176,7 +176,7 @@ export default function TemplatesPage() {
       {showForm ? (
         <Card
           title={editingId ? "Edit template" : "Create template"}
-          description="Use {{name}} / {{company}} placeholders if you like — replace them in Personalized before sending."
+          description="Use {{name}}, {{company}}, {{email}}, {{first_name}}, and similar — filled automatically from each lead when you send."
         >
           <div className="space-y-5">
             <Input
@@ -199,7 +199,7 @@ export default function TemplatesPage() {
                 setBodyHtml(html);
                 setBodyText(text);
               }}
-              placeholder="Write your email body… Use {{name}} if you like."
+              placeholder="Write your email body… e.g. Hi {{name}}, quick idea for {{company}}…"
             />
 
             <div className="grid gap-5 sm:grid-cols-2">

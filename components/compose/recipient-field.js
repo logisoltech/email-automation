@@ -38,7 +38,7 @@ function formatRecipients(emails) {
  *   open: boolean;
  *   onClose: () => void;
  *   selectedEmails: string[];
- *   onConfirm: (emails: string[]) => void;
+ *   onConfirm: (payload: { emails: string[]; leads: Record<string, unknown>[] }) => void;
  * }} props
  */
 function LeadRecipientModal({ open, onClose, selectedEmails, onConfirm }) {
@@ -336,7 +336,18 @@ function LeadRecipientModal({ open, onClose, selectedEmails, onConfirm }) {
             </Button>
             <Button
               onClick={() => {
-                onConfirm([...picked]);
+                const emails = [...picked];
+                /** @type {Map<string, Record<string, unknown>>} */
+                const byId = new Map();
+                for (const lead of leads) {
+                  const leadEmails = (lead.emails || [])
+                    .map((e) => String(e).trim().toLowerCase())
+                    .filter(Boolean);
+                  if (leadEmails.some((e) => picked.has(e))) {
+                    byId.set(lead.id, lead);
+                  }
+                }
+                onConfirm({ emails, leads: [...byId.values()] });
                 onClose();
               }}
             >
@@ -355,9 +366,10 @@ function LeadRecipientModal({ open, onClose, selectedEmails, onConfirm }) {
  * @param {{
  *   value: string;
  *   onChange: (value: string) => void;
+ *   onLeadsSelected?: (leads: Record<string, unknown>[]) => void;
  * }} props
  */
-export function RecipientField({ value, onChange }) {
+export function RecipientField({ value, onChange, onLeadsSelected }) {
   const [modalOpen, setModalOpen] = useState(false);
   const emails = useMemo(() => parseRecipientEmails(value), [value]);
 
@@ -365,8 +377,9 @@ export function RecipientField({ value, onChange }) {
     onChange(formatRecipients(emails.filter((item) => item !== email)));
   }
 
-  function handleConfirmFromLeads(selected) {
-    onChange(formatRecipients(selected.map((e) => e.toLowerCase())));
+  function handleConfirmFromLeads(payload) {
+    onChange(formatRecipients(payload.emails.map((e) => e.toLowerCase())));
+    onLeadsSelected?.(payload.leads || []);
   }
 
   return (

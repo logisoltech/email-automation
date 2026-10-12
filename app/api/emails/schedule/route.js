@@ -3,6 +3,11 @@ import { z } from "zod";
 import { requireWorkspaceSession } from "@/lib/auth/get-session";
 import { getActiveProvider } from "@/lib/ai";
 import {
+  emailHasPlaceholders,
+  mapLeadsByRecipientEmail,
+  mergeEmailFields,
+} from "@/lib/email/merge-placeholders";
+import {
   buildBrandedEmailHtml,
   buildBrandedEmailText,
   signatureFromSettings,
@@ -60,41 +65,74 @@ export async function POST(request) {
   const settings = await getWorkspaceSettings(session.supabase, session.workspace.id);
   const signature = signatureFromSettings(settings);
   const resolvedSigImage = resolveSignatureImageUrl(settings, signatureImageUrl);
-  const brandedInner = buildBrandedEmailHtml({
-    bodyText,
-    bodyHtml,
-    logoUrl: logoUrl || null,
-    signatureImageUrl: resolvedSigImage,
-    workspaceSignature: signature,
-  });
-  const text = buildBrandedEmailText(bodyText, signature, resolvedSigImage);
-  // Store branded inner HTML (not full document) so deliverEmail wraps once on send
-  const html = brandedInner;
+  const needsMerge = emailHasPlaceholders({ subject, bodyText, bodyHtml });
+  const leadsByEmail = needsMerge
+    ? await mapLeadsByRecipientEmail(session.supabase, session.workspace.id, recipients)
+    : new Map();
 
-  const { data, error } = await session.supabase
-    .from("emails")
-    .insert({
-      workspace_id: session.workspace.id,
-      sent_by: session.user.id,
-      subject,
-      body_html: html,
-      body_text: text,
-      recipients,
-      status: "scheduled",
-      scheduled_at: scheduledAt,
-      ai_provider: getActiveProvider(),
-      ai_prompt: aiPrompt || null,
-    })
-    .select("id, scheduled_at")
-    .single();
+  /** @type {{ subject: string; bodyText: string; bodyHtml: string; recipients: string[] }[]} */
+  const jobs = needsMerge
+    ? recipients.map((email) => {
+        const lead = leadsByEmail.get(email.toLowerCase()) || null;
+        const merged = mergeEmailFields(
+          { subject, bodyText, bodyHtml: bodyHtml || "" },
+          lead,
+          { email }
+        );
+        return {
+          subject: merged.subject,
+          bodyText: merged.bodyText,
+          bodyHtml: merged.bodyHtml,
+          recipients: [email],
+        };
+      })
+    : [{ subject, bodyText, bodyHtml: bodyHtml || "", recipients }];
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  /** @type {string[]} */
+  const ids = [];
+  /** @type {string | null} */
+  let firstScheduledAt = null;
+
+  for (const job of jobs) {
+    const brandedInner = buildBrandedEmailHtml({
+      bodyText: job.bodyText,
+      bodyHtml: job.bodyHtml,
+      logoUrl: logoUrl || null,
+      signatureImageUrl: resolvedSigImage,
+      workspaceSignature: signature,
+    });
+    const text = buildBrandedEmailText(job.bodyText, signature, resolvedSigImage);
+
+    const { data, error } = await session.supabase
+      .from("emails")
+      .insert({
+        workspace_id: session.workspace.id,
+        sent_by: session.user.id,
+        subject: job.subject,
+        body_html: brandedInner,
+        body_text: text,
+        recipients: job.recipients,
+        status: "scheduled",
+        scheduled_at: scheduledAt,
+        ai_provider: getActiveProvider(),
+        ai_prompt: aiPrompt || null,
+      })
+      .select("id, scheduled_at")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message, ids }, { status: 500 });
+    }
+
+    ids.push(data.id);
+    if (!firstScheduledAt) firstScheduledAt = data.scheduled_at;
   }
 
   return NextResponse.json({
     success: true,
-    id: data.id,
-    scheduledAt: data.scheduled_at,
+    id: ids[0],
+    ids,
+    scheduledAt: firstScheduledAt,
+    personalized: needsMerge,
   });
 }

@@ -54,7 +54,7 @@ export async function GET(request) {
   let query = session.supabase
     .from("leads")
     .select(
-      "id, name, emails, phone, country, category, category_id, project_description, budget, lead_date, status, created_at, import_run_id",
+      "id, name, emails, phone, country, category, category_id, project_description, budget, lead_date, website_url, notes, status, created_at, import_run_id",
       { count: "exact" }
     )
     .eq("workspace_id", workspaceId)
